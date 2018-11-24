@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "NEODisassembler": {
+      "commandName": "Project",
+      "commandLineArgs": "code2.avm"
+    }
+  }
+}
