@@ -2,146 +2,76 @@
 using System.Collections.Generic;
 using System.Text;
 using VMArray = NEODisassembler.Array;
+using System.Security.Cryptography;
 namespace NEODisassembler
 {
 
-        public class ExecutionStackRecord : RandomAccessStack<StackItem>
+    public class ExecutionEngine
+    {
+        private int variable_count = -1;
+        public Stack<StackItem> InvocationStack { get; } = new Stack<StackItem>();
+        public Stack<StackItem> EvaluationStack = new Stack<StackItem>();
+        public Stack<StackItem> AltStack { get; } = new Stack<StackItem>();
+
+
+        private string getVariable()
         {
-            public enum OpType
-            {
-                Non,
-                Clear,
-                Insert,
-                Peek,
-                Pop,
-                Push,
-                Remove,
-                Set,
-            }
-            public struct Op
-            {
-                public Op(OpType type, int ind = -1)
-                {
-                    this.type = type;
-                    this.ind = ind;
-                }
-                public OpType type;
-                public int ind;
-            }
-
-            public List<Op> record = new List<Op>();
-            public void ClearRecord()
-            {
-                record.Clear();
-            }
-            public OpType GetLastRecordType()
-            {
-                if (record.Count == 0)
-                    return OpType.Non;
-                else
-                    return record.Last().type;
-            }
-            public new void Clear()
-            {
-                record.Add(new Op(OpType.Clear));
-                base.Clear();
-            }
-            public new void Insert(int index, StackItem item)
-            {
-                record.Add(new Op(OpType.Insert, index));
-                base.Insert(index, item);
-            }
-            public new StackItem Peek(int index = 0)
-            {
-                record.Add(new Op(OpType.Peek, index));
-                return base.Peek(index);
-            }
-            public StackItem PeekWithoutLog(int index = 0)
-            {
-                return base.Peek(index);
-            }
-            public new StackItem Pop()
-            {
-                record.Add(new Op(OpType.Pop));
-                return base.Remove(0);
-            }
-
-            public new void Push(StackItem item)
-            {
-                record.Add(new Op(OpType.Push));
-                base.Push(item);
-            }
-
-            public new StackItem Remove(int index)
-            {
-                if (index == 0)
-                    return Pop();
-
-                record.Add(new Op(OpType.Remove, index));
-                return base.Remove(index);
-            }
-
-            public new void Set(int index, StackItem item)
-            {
-                record.Add(new Op(OpType.Set, index));
-                base.Set(index, item);
-            }
+            variable_count++;
+            return  "$v_" + variable_count;
         }
-
-
-        public class ExecutionEngine
+        public T[] SubArray<T>(this T[] data, int index, int length)
         {
-            public RandomAccessStack<ExecutionContext> InvocationStack { get; } = new RandomAccessStack<ExecutionContext>();
-            public ExecutionStackRecord EvaluationStack = new ExecutionStackRecord();
-            public RandomAccessStack<StackItem> AltStack { get; } = new RandomAccessStack<StackItem>();
-            public ExecutionContext CurrentContext => InvocationStack.Peek();
-            public ExecutionContext CallingContext => InvocationStack.Count > 1 ? InvocationStack.Peek(1) : null;
-            public ExecutionContext EntryContext => InvocationStack.Peek(InvocationStack.Count - 1);
-
-            public ExecutionEngine()
-            {
-
-            }
-
-
+            T[] result = new T[length];
+            System.Array.Copy(data, index, result, 0, length);
+            return result;
+        }
         private void ExecuteOp(NeoMethod method, ExecutionContext context)
         {
             // TODO: parameter of function
-            string src = "function " + method.name + "() {";
+            string src = "function " + method.name + "() {\n";
 
             NeoCode param_code = method.neoCodes[0];
 
-            //// Get the number of temp variable inside of the funtion
-            //if(param_code.code != OpCode.PUSH0)
-            //{
-            //    var num_of_param = param_code.code - 0x50; // PHSH1 =>0x51
-            //    // Create an array to store those variables and put the array into the altstack
-
-            //}
-            int addr = 0;
-            int variable_count = 0;
-            while (addr <= method.neoCodes.Count)
+            StackItem stackItem;
+            string temp = "";
+          foreach(NeoCode opcode in method.neoCodes)
             {
-                NeoCode opcode = method.neoCodes[addr];
 
                 if (opcode.code >= OpCode.PUSHBYTES1 && opcode.code <= OpCode.PUSHBYTES75)
-                    EvaluationStack.Push(context.OpReader.ReadBytes((byte)opcode.code));
+                {
+                    stackItem = new StackItem();
+                    stackItem.name = temp =getVariable();
+                    stackItem.type = Type.bytearray;
+                    stackItem.byteArray = opcode.paramData;
+                    EvaluationStack.Push(stackItem);
+
+                    src += "\tbyte[]"+ temp+"= new byte[](\""+opcode.paramData.ToString()+"\");" +"\n";
+                    variable_count++;
+                }
                 else
                     switch (opcode.code)
                     {
                         // Push value
                         case OpCode.PUSH0:
+                            temp = getVariable();
 
-                            EvaluationStack.Push(new byte[0]);
+                            stackItem = new StackItem();
+                            stackItem.name = temp;
+                            stackItem.type = Type.integer;
+                            stackItem.integer = 0;
+                            EvaluationStack.Push(stackItem);
+                            src += "\t" + temp + " = 0;\n";
                             break;
                         case OpCode.PUSHDATA1:
-                            EvaluationStack.Push(context.OpReader.ReadBytes(context.OpReader.ReadByte()));
-                            break;
                         case OpCode.PUSHDATA2:
-                            EvaluationStack.Push(context.OpReader.ReadBytes(context.OpReader.ReadUInt16()));
-                            break;
                         case OpCode.PUSHDATA4:
-                            EvaluationStack.Push(context.OpReader.ReadBytes(context.OpReader.ReadInt32()));
+                            temp = getVariable();
+                            stackItem = new StackItem();
+                            stackItem.name = temp;
+                            stackItem.type = Type.bytearray;
+                            stackItem.byteArray = opcode.paramData;
+                            EvaluationStack.Push(stackItem);
+                            src += "\tbyte[]" + temp + "= new byte[](\"" + opcode.paramData.ToString() + "\");" + "\n";
                             break;
                         case OpCode.PUSHM1:
                         case OpCode.PUSH1:
@@ -160,7 +90,14 @@ namespace NEODisassembler
                         case OpCode.PUSH14:
                         case OpCode.PUSH15:
                         case OpCode.PUSH16:
-                            EvaluationStack.Push((int)opcode - (int)OpCode.PUSH1 + 1);
+                            temp = getVariable();
+
+                            stackItem = new StackItem();
+                            stackItem.name = temp;
+                            stackItem.type = Type.integer;
+                            stackItem.integer = (int)opcode.code - (int)OpCode.PUSH1 + 1;
+                            EvaluationStack.Push(stackItem);
+                            src += "\t" + temp + " = 0;\n";
                             break;
 
                         // Control
@@ -177,7 +114,7 @@ namespace NEODisassembler
                                     return;
                                 }
                                 bool fValue = true;
-                                if (opcode > OpCode.JMP)
+                                if (opcode.code > OpCode.JMP)
                                 {
                                     fValue = EvaluationStack.Pop().GetBoolean();
                                     if (opcode == OpCode.JMPIFNOT)
@@ -198,7 +135,7 @@ namespace NEODisassembler
                         case OpCode.APPCALL:
                         case OpCode.TAILCALL:
                             {
-
+                                src += "APPCALL(\"" + opcode.paramData.ToString() + "\");\n";
                             }
                             break;
                         case OpCode.SYSCALL:
@@ -219,7 +156,7 @@ namespace NEODisassembler
                             break;
                         case OpCode.XDROP:
                             {
-                                int n = (int)EvaluationStack.Pop().GetBigInteger();
+                                int n = EvaluationStack.Pop().integer;
                                 if (n < 0)
                                 {
                                     return;
@@ -229,13 +166,14 @@ namespace NEODisassembler
                             break;
                         case OpCode.XSWAP:
                             {
-                                int n = (int)EvaluationStack.Pop().GetBigInteger();
+                                int n = EvaluationStack.Pop().integer;
                                 if (n < 0)
                                 {
 
                                     return;
                                 }
                                 if (n == 0) break;
+
                                 StackItem xn = EvaluationStack.Peek(n);
                                 EvaluationStack.Set(n, EvaluationStack.Peek());
                                 EvaluationStack.Set(0, xn);
@@ -253,7 +191,16 @@ namespace NEODisassembler
                             }
                             break;
                         case OpCode.DEPTH:
-                            EvaluationStack.Push(EvaluationStack.Count);
+                            temp = getVariable();
+
+                            stackItem = new StackItem();
+                            stackItem.name = temp;
+                            stackItem.type = Type.integer;
+                            stackItem.integer = EvaluationStack.Count;
+                            EvaluationStack.Push(stackItem);
+                            src += "\t" + temp + " = "+ EvaluationStack.Count+ ";\n";
+
+                            EvaluationStack.Push(stackItem);
                             break;
                         case OpCode.DROP:
                             EvaluationStack.Pop();
@@ -278,7 +225,7 @@ namespace NEODisassembler
                             break;
                         case OpCode.PICK:
                             {
-                                int n = (int)EvaluationStack.Pop().GetBigInteger();
+                                int n = EvaluationStack.Pop().integer;
                                 if (n < 0)
                                 {
 
@@ -307,6 +254,7 @@ namespace NEODisassembler
                                 EvaluationStack.Push(x2);
                                 EvaluationStack.Push(x3);
                                 EvaluationStack.Push(x1);
+                                
                             }
                             break;
                         case OpCode.SWAP:
@@ -319,321 +267,651 @@ namespace NEODisassembler
                             break;
                         case OpCode.TUCK:
                             {
-                                //StackItem x2 = EvaluationStack.Pop();
-                                //StackItem x1 = EvaluationStack.Pop();
-                                //EvaluationStack.Push(x2);
-                                //EvaluationStack.Push(x1);
-                                //EvaluationStack.Push(x2);
+                                StackItem x2 = EvaluationStack.Pop();
+                                StackItem x1 = EvaluationStack.Pop();
+                                EvaluationStack.Push(x2);
+                                EvaluationStack.Push(x1);
+                                EvaluationStack.Push(x2);
                             }
                             break;
                         case OpCode.CAT:
                             {
-                                //byte[] x2 = EvaluationStack.Pop().GetByteArray();
-                                //byte[] x1 = EvaluationStack.Pop().GetByteArray();
-                                //EvaluationStack.Push(x1.Concat(x2).ToArray());
+                                StackItem x2 = EvaluationStack.Pop();
+                                StackItem x1 = EvaluationStack.Pop();
+
+
+                                int len = x2.byteArray.Length + x1.byteArray.Length;
+                                byte[] x3 = new byte[len];
+                                x1.byteArray.CopyTo(x3, 0);
+                                x2.byteArray.CopyTo(x3, x1.byteArray.Length);
+
+                                temp = getVariable();
+                                stackItem = new StackItem();
+                                stackItem.name = temp;
+                                stackItem.type = Type.bytearray;
+                                stackItem.byteArray = x3;
+                                EvaluationStack.Push(stackItem);
+
+                                src += "\tbyte[]" + temp + "= new byte["+len+"];" + "\n";
+                                src += x1.name + ".CopyTo(" + temp + ", 0);\n";
+                                src += x2.name + ".CopyTo(" + temp + ", " + x1.name + ".Length);\n";
+
+                                EvaluationStack.Push(stackItem);
                             }
                             break;
                         case OpCode.SUBSTR:
                             {
-                                //int count = (int)EvaluationStack.Pop().GetBigInteger();
-                                //if (count < 0)
-                                //{
+                                int count = (int)EvaluationStack.Pop().integer;
+                                if (count < 0)
+                                {
 
-                                //    return;
-                                //}
-                                //int index = (int)EvaluationStack.Pop().GetBigInteger();
-                                //if (index < 0)
-                                //{
+                                    return;
+                                }
+                                int index = (int)EvaluationStack.Pop().integer;
+                                if (index < 0)
+                                {
 
-                                //    return;
-                                //}
-                                //byte[] x = EvaluationStack.Pop().GetByteArray();
-                                //EvaluationStack.Push(x.Skip(index).Take(count).ToArray());
+                                    return;
+                                }
+                                StackItem x = EvaluationStack.Pop();
+
+                                src += "\t" + x.name + "=" + x.name + ".substr(" + index + ", " + count + ");\n";
+                                x.byteArray = SubArray<byte>(x.byteArray, index, count);
+                                EvaluationStack.Push(x);
                             }
                             break;
                         case OpCode.LEFT:
                             {
-                                int count = (int)EvaluationStack.Pop().GetBigInteger();
+                                int count = (int)EvaluationStack.Pop().integer;
                                 if (count < 0)
                                 {
 
                                     return;
                                 }
-                                byte[] x = EvaluationStack.Pop().GetByteArray();
-                                EvaluationStack.Push(x.Take(count).ToArray());
+                                StackItem x = EvaluationStack.Pop();
+                                src += "\t" + x.name + "=" + x.name + ".substr(0, " + count + ");\n";
+                                x.byteArray = SubArray<byte>(x.byteArray, 0, count);
+                                EvaluationStack.Push(x);
                             }
                             break;
                         case OpCode.RIGHT:
                             {
-                                int count = (int)EvaluationStack.Pop().GetBigInteger();
+                                int count = (int)EvaluationStack.Pop().integer;
                                 if (count < 0)
                                 {
 
                                     return;
                                 }
-                                byte[] x = EvaluationStack.Pop().GetByteArray();
-                                if (x.Length < count)
+                               StackItem x = EvaluationStack.Pop();
+                                if (x.byteArray.Length < count)
                                 {
 
                                     return;
                                 }
+                                src += "\t" + x.name + "=" + x.name + ".substr(0, " + count + ");\n";
+                                x.byteArray = SubArray<byte>(x.byteArray, 0, count);
+                                EvaluationStack.Push(x);
+
                                 EvaluationStack.Push(x.Skip(x.Length - count).ToArray());
                             }
                             break;
                         case OpCode.SIZE:
                             {
-                                byte[] x = EvaluationStack.Pop().GetByteArray();
-                                EvaluationStack.Push(x.Length);
+                                StackItem x = EvaluationStack.Pop();
+                                temp = getVariable();
+
+                                stackItem = new StackItem();
+                                stackItem.name = temp;
+                                stackItem.type = Type.integer;
+                                stackItem.integer = x.byteArray.Length;
+                                EvaluationStack.Push(stackItem);
+                                src += "\t" + temp + "=" + x.name + ".Length;\n";
+
+                                EvaluationStack.Push(stackItem);
                             }
                             break;
 
                         // Bitwise logic
                         case OpCode.INVERT:
                             {
-                                BigInteger x = EvaluationStack.Pop().GetBigInteger();
-                                EvaluationStack.Push(~x);
+                                StackItem x = EvaluationStack.Pop();
+                                x.integer = ~x.integer;
+                                src += "\t" + temp + "= ~" + x.name + ";\n";
+                                EvaluationStack.Push(x);
                             }
                             break;
                         case OpCode.AND:
                             {
-                                BigInteger x2 = EvaluationStack.Pop().GetBigInteger();
-                                BigInteger x1 = EvaluationStack.Pop().GetBigInteger();
-                                EvaluationStack.Push(x1 & x2);
+                                StackItem x2 = EvaluationStack.Pop();
+                                StackItem x1 = EvaluationStack.Pop();
+
+                                temp = getVariable();
+
+                                stackItem = new StackItem();
+                                stackItem.name = temp;
+                                stackItem.type = Type.integer;
+                                stackItem.integer = x2.integer&x1.integer;
+                                EvaluationStack.Push(stackItem);
+                                src += "\t" + temp +"="+ x2.name+"&"+x1.name+";\n";
+
+                                EvaluationStack.Push(stackItem);
                             }
                             break;
                         case OpCode.OR:
                             {
-                                BigInteger x2 = EvaluationStack.Pop().GetBigInteger();
-                                BigInteger x1 = EvaluationStack.Pop().GetBigInteger();
-                                EvaluationStack.Push(x1 | x2);
+                                StackItem x2 = EvaluationStack.Pop();
+                                StackItem x1 = EvaluationStack.Pop();
+
+                                temp = getVariable();
+
+                                stackItem = new StackItem();
+                                stackItem.name = temp;
+                                stackItem.type = Type.integer;
+                                stackItem.integer = x2.integer | x1.integer;
+                                EvaluationStack.Push(stackItem);
+                                src += "\t" + temp + "=" + x2.name + "|" + x1.name + ";\n";
+
+                                EvaluationStack.Push(stackItem);
                             }
                             break;
                         case OpCode.XOR:
                             {
-                                BigInteger x2 = EvaluationStack.Pop().GetBigInteger();
-                                BigInteger x1 = EvaluationStack.Pop().GetBigInteger();
-                                EvaluationStack.Push(x1 ^ x2);
+                                StackItem x2 = EvaluationStack.Pop();
+                                StackItem x1 = EvaluationStack.Pop();
+
+                                temp = getVariable();
+
+                                stackItem = new StackItem();
+                                stackItem.name = temp;
+                                stackItem.type = Type.integer;
+                                stackItem.integer = x2.integer ^ x1.integer;
+                                EvaluationStack.Push(stackItem);
+                                src += "\t" + temp + "=" + x2.name + "^" + x1.name + ";\n";
+
+                                EvaluationStack.Push(stackItem);
                             }
                             break;
                         case OpCode.EQUAL:
                             {
                                 StackItem x2 = EvaluationStack.Pop();
                                 StackItem x1 = EvaluationStack.Pop();
-                                EvaluationStack.Push(x1.Equals(x2));
+
+                                temp = getVariable();
+
+                                stackItem = new StackItem();
+                                stackItem.name = temp;
+                                stackItem.type = Type.boolen;
+                                stackItem.flag = x2.integer == x1.integer;
+                                EvaluationStack.Push(stackItem);
+                                src += "\t" + temp + "=" + x2.name + "==" + x1.name + ";\n";
+
+                                EvaluationStack.Push(stackItem);
                             }
                             break;
 
                         // Numeric
                         case OpCode.INC:
                             {
-                                BigInteger x = EvaluationStack.Pop().GetBigInteger();
-                                EvaluationStack.Push(x + 1);
+                                StackItem x2 = EvaluationStack.Pop();
+                                x2.integer = x2.integer + 1;
+                                src += "\t" + x2.name + "=" + x2.name + "++;\n";
+                                EvaluationStack.Push(x2);
                             }
                             break;
                         case OpCode.DEC:
                             {
-                                BigInteger x = EvaluationStack.Pop().GetBigInteger();
-                                EvaluationStack.Push(x - 1);
+                                StackItem x2 = EvaluationStack.Pop();
+                                x2.integer = x2.integer - 1;
+                                src += "\t" + x2.name + "=" + x2.name + "--;\n";
+                                EvaluationStack.Push(x2);
                             }
                             break;
                         case OpCode.SIGN:
                             {
-                                BigInteger x = EvaluationStack.Pop().GetBigInteger();
-                                EvaluationStack.Push(x.Sign);
+                                //BigInteger x = EvaluationStack.Pop().GetBigInteger();
+                                //EvaluationStack.Push(x.Sign);
                             }
                             break;
                         case OpCode.NEGATE:
                             {
-                                BigInteger x = EvaluationStack.Pop().GetBigInteger();
-                                EvaluationStack.Push(-x);
+                                StackItem x2 = EvaluationStack.Pop();
+                                x2.integer = -x2.integer;
+                                src += "\t" + x2.name + "= -" + x2.name + ";\n";
+                                EvaluationStack.Push(x2);
                             }
                             break;
                         case OpCode.ABS:
                             {
-                                BigInteger x = EvaluationStack.Pop().GetBigInteger();
-                                EvaluationStack.Push(BigInteger.Abs(x));
+                                StackItem x2 = EvaluationStack.Pop();
+                                x2.integer = Math.Abs(x2.integer);
+                                src += "\t" + x2.name + "=ABS(" + x2.name + ");\n";
+                                EvaluationStack.Push(x2);
                             }
                             break;
                         case OpCode.NOT:
                             {
-                                bool x = EvaluationStack.Pop().GetBoolean();
-                                EvaluationStack.Push(!x);
+                                StackItem x2 = EvaluationStack.Pop();
+                                x2.flag = !x2.flag;
+                                src += "\t" + x2.name + "=!" + x2.name + ";\n";
+                                EvaluationStack.Push(x2);
                             }
                             break;
                         case OpCode.NZ:
                             {
-                                BigInteger x = EvaluationStack.Pop().GetBigInteger();
-                                EvaluationStack.Push(x != BigInteger.Zero);
+                                StackItem x = EvaluationStack.Pop();
+                                temp = getVariable();
+
+                                stackItem = new StackItem();
+                                stackItem.name = temp;
+                                stackItem.type = Type.boolen;
+                                stackItem.flag = x.integer !=0 ;
+
+                                src += "\t" + temp + "=" + x.name + "!=0" + ";\n";
+
+                                EvaluationStack.Push(stackItem);
                             }
                             break;
                         case OpCode.ADD:
                             {
-                                BigInteger x2 = EvaluationStack.Pop().GetBigInteger();
-                                BigInteger x1 = EvaluationStack.Pop().GetBigInteger();
-                                EvaluationStack.Push(x1 + x2);
+                                StackItem x2 = EvaluationStack.Pop();
+                                StackItem x1 = EvaluationStack.Pop();
+
+                                temp = getVariable();
+
+                                stackItem = new StackItem();
+                                stackItem.name = temp;
+                                stackItem.type = Type.integer;
+                                stackItem.integer = x2.integer + x1.integer;
+                                EvaluationStack.Push(stackItem);
+                                src += "\t" + temp + "=" + x2.name + "+" + x1.name + ";\n";
+
+                                EvaluationStack.Push(stackItem);
                             }
                             break;
                         case OpCode.SUB:
                             {
-                                BigInteger x2 = EvaluationStack.Pop().GetBigInteger();
-                                BigInteger x1 = EvaluationStack.Pop().GetBigInteger();
-                                EvaluationStack.Push(x1 - x2);
+                                StackItem x2 = EvaluationStack.Pop();
+                                StackItem x1 = EvaluationStack.Pop();
+
+                                temp = getVariable();
+
+                                stackItem = new StackItem();
+                                stackItem.name = temp;
+                                stackItem.type = Type.integer;
+                                stackItem.integer = x1.integer - x2.integer;
+                                EvaluationStack.Push(stackItem);
+                                src += "\t" + temp + "=" + x1.name + "-" + x2.name + ";\n";
+
+                                EvaluationStack.Push(stackItem);
+ 
                             }
                             break;
                         case OpCode.MUL:
                             {
-                                BigInteger x2 = EvaluationStack.Pop().GetBigInteger();
-                                BigInteger x1 = EvaluationStack.Pop().GetBigInteger();
-                                EvaluationStack.Push(x1 * x2);
+                                StackItem x2 = EvaluationStack.Pop();
+                                StackItem x1 = EvaluationStack.Pop();
+
+                                temp = getVariable();
+
+                                stackItem = new StackItem();
+                                stackItem.name = temp;
+                                stackItem.type = Type.integer;
+                                stackItem.integer = x1.integer * x2.integer;
+                                EvaluationStack.Push(stackItem);
+                                src += "\t" + temp + "=" + x1.name + "*" + x2.name + ";\n";
+
+                                EvaluationStack.Push(stackItem);
                             }
                             break;
                         case OpCode.DIV:
                             {
-                                BigInteger x2 = EvaluationStack.Pop().GetBigInteger();
-                                BigInteger x1 = EvaluationStack.Pop().GetBigInteger();
-                                EvaluationStack.Push(x1 / x2);
+                                StackItem x2 = EvaluationStack.Pop();
+                                StackItem x1 = EvaluationStack.Pop();
+
+                                temp = getVariable();
+
+                                stackItem = new StackItem();
+                                stackItem.name = temp;
+                                stackItem.type = Type.integer;
+                                stackItem.integer = x1.integer / x2.integer;
+                                EvaluationStack.Push(stackItem);
+                                src += "\t" + temp + "=" + x1.name + "/" + x2.name + ";\n";
+
+                                EvaluationStack.Push(stackItem);
                             }
                             break;
                         case OpCode.MOD:
                             {
-                                BigInteger x2 = EvaluationStack.Pop().GetBigInteger();
-                                BigInteger x1 = EvaluationStack.Pop().GetBigInteger();
-                                EvaluationStack.Push(x1 % x2);
+                                StackItem x2 = EvaluationStack.Pop();
+                                StackItem x1 = EvaluationStack.Pop();
+
+                                temp = getVariable();
+
+                                stackItem = new StackItem();
+                                stackItem.name = temp;
+                                stackItem.type = Type.integer;
+                                stackItem.integer = x1.integer % x2.integer;
+                                EvaluationStack.Push(stackItem);
+                                src += "\t" + temp + "=" + x1.name + "%" + x2.name + ";\n";
+
+                                EvaluationStack.Push(stackItem);
                             }
                             break;
                         case OpCode.SHL:
                             {
-                                int n = (int)EvaluationStack.Pop().GetBigInteger();
-                                BigInteger x = EvaluationStack.Pop().GetBigInteger();
-                                EvaluationStack.Push(x << n);
+                                //int n = (int)EvaluationStack.Pop().GetBigInteger();
+                                //BigInteger x = EvaluationStack.Pop().GetBigInteger();
+                                //EvaluationStack.Push(x << n);
+
+                                StackItem x2 = EvaluationStack.Pop();
+                                StackItem x1 = EvaluationStack.Pop();
+
+                                temp = getVariable();
+
+                                stackItem = new StackItem();
+                                stackItem.name = temp;
+                                stackItem.type = Type.integer;
+                                stackItem.integer = x1.integer << x2.integer;
+                                EvaluationStack.Push(stackItem);
+                                src += "\t" + temp + "=" + x1.name + "<<" + x2.name + ";\n";
+
+                                EvaluationStack.Push(stackItem);
+
                             }
                             break;
                         case OpCode.SHR:
                             {
-                                int n = (int)EvaluationStack.Pop().GetBigInteger();
-                                BigInteger x = EvaluationStack.Pop().GetBigInteger();
-                                EvaluationStack.Push(x >> n);
+                                //int n = (int)EvaluationStack.Pop().GetBigInteger();
+                                //BigInteger x = EvaluationStack.Pop().GetBigInteger();
+                                //EvaluationStack.Push(x >> n);
+                                StackItem x2 = EvaluationStack.Pop();
+                                StackItem x1 = EvaluationStack.Pop();
+
+                                temp = getVariable();
+
+                                stackItem = new StackItem();
+                                stackItem.name = temp;
+                                stackItem.type = Type.integer;
+                                stackItem.integer = x1.integer >> x2.integer;
+                                EvaluationStack.Push(stackItem);
+                                src += "\t" + temp + "=" + x1.name + ">>" + x2.name + ";\n";
+
+                                EvaluationStack.Push(stackItem);
                             }
                             break;
                         case OpCode.BOOLAND:
                             {
-                                bool x2 = EvaluationStack.Pop().GetBoolean();
-                                bool x1 = EvaluationStack.Pop().GetBoolean();
-                                EvaluationStack.Push(x1 && x2);
+                                //bool x2 = EvaluationStack.Pop().GetBoolean();
+                                //bool x1 = EvaluationStack.Pop().GetBoolean();
+                                //EvaluationStack.Push(x1 && x2);
+                                StackItem x2 = EvaluationStack.Pop();
+                                StackItem x1 = EvaluationStack.Pop();
+
+                                temp = getVariable();
+
+                                stackItem = new StackItem();
+                                stackItem.name = temp;
+                                stackItem.type = Type.boolen;
+                                stackItem.flag = x1.flag && x2.flag;
+                                EvaluationStack.Push(stackItem);
+
+                                src += "\t" + temp + "=" + x1.name + "&&" + x2.name + ";\n";
                             }
                             break;
                         case OpCode.BOOLOR:
                             {
-                                bool x2 = EvaluationStack.Pop().GetBoolean();
-                                bool x1 = EvaluationStack.Pop().GetBoolean();
-                                EvaluationStack.Push(x1 || x2);
+                                //bool x2 = EvaluationStack.Pop().GetBoolean();
+                                //bool x1 = EvaluationStack.Pop().GetBoolean();
+                                //EvaluationStack.Push(x1 || x2);
+                                StackItem x2 = EvaluationStack.Pop();
+                                StackItem x1 = EvaluationStack.Pop();
+
+                                temp = getVariable();
+
+                                stackItem = new StackItem();
+                                stackItem.name = temp;
+                                stackItem.type = Type.boolen;
+                                stackItem.flag = x1.flag || x2.flag;
+                                EvaluationStack.Push(stackItem);
+
+                                src += "\t" + temp + "=" + x1.name + "||" + x2.name + ";\n";
                             }
                             break;
                         case OpCode.NUMEQUAL:
                             {
-                                BigInteger x2 = EvaluationStack.Pop().GetBigInteger();
-                                BigInteger x1 = EvaluationStack.Pop().GetBigInteger();
-                                EvaluationStack.Push(x1 == x2);
+                                //BigInteger x2 = EvaluationStack.Pop().GetBigInteger();
+                                //BigInteger x1 = EvaluationStack.Pop().GetBigInteger();
+                                //EvaluationStack.Push(x1 == x2);
+
+                                StackItem x2 = EvaluationStack.Pop();
+                                StackItem x1 = EvaluationStack.Pop();
+
+                                temp = getVariable();
+
+                                stackItem = new StackItem();
+                                stackItem.name = temp;
+                                stackItem.type = Type.boolen;
+                                stackItem.flag = x1.integer == x2.integer;
+                                EvaluationStack.Push(stackItem);
+                                src += "\t" + temp + "=" + x1.name + "==" + x2.name + ";\n";
+
+                                EvaluationStack.Push(stackItem);
                             }
                             break;
                         case OpCode.NUMNOTEQUAL:
                             {
-                                BigInteger x2 = EvaluationStack.Pop().GetBigInteger();
-                                BigInteger x1 = EvaluationStack.Pop().GetBigInteger();
-                                EvaluationStack.Push(x1 != x2);
+                                //BigInteger x2 = EvaluationStack.Pop().GetBigInteger();
+                                //BigInteger x1 = EvaluationStack.Pop().GetBigInteger();
+                                //EvaluationStack.Push(x1 != x2);
+                                StackItem x2 = EvaluationStack.Pop();
+                                StackItem x1 = EvaluationStack.Pop();
+
+                                temp = getVariable();
+
+                                stackItem = new StackItem();
+                                stackItem.name = temp;
+                                stackItem.type = Type.boolen;
+                                stackItem.flag = x1.integer != x2.integer;
+                                EvaluationStack.Push(stackItem);
+                                src += "\t" + temp + "=" + x1.name + "!=" + x2.name + ";\n";
+
+                                EvaluationStack.Push(stackItem);
                             }
                             break;
                         case OpCode.LT:
                             {
-                                BigInteger x2 = EvaluationStack.Pop().GetBigInteger();
-                                BigInteger x1 = EvaluationStack.Pop().GetBigInteger();
-                                EvaluationStack.Push(x1 < x2);
+                                //BigInteger x2 = EvaluationStack.Pop().GetBigInteger();
+                                //BigInteger x1 = EvaluationStack.Pop().GetBigInteger();
+                                //EvaluationStack.Push(x1 < x2);
+                                StackItem x2 = EvaluationStack.Pop();
+                                StackItem x1 = EvaluationStack.Pop();
+
+                                temp = getVariable();
+
+                                stackItem = new StackItem();
+                                stackItem.name = temp;
+                                stackItem.type = Type.boolen;
+                                stackItem.flag = x1.integer < x2.integer;
+                                EvaluationStack.Push(stackItem);
+                                src += "\t" + temp + "=" + x1.name + "<" + x2.name + ";\n";
+
+                                EvaluationStack.Push(stackItem);
                             }
                             break;
                         case OpCode.GT:
                             {
-                                BigInteger x2 = EvaluationStack.Pop().GetBigInteger();
-                                BigInteger x1 = EvaluationStack.Pop().GetBigInteger();
-                                EvaluationStack.Push(x1 > x2);
+                                //BigInteger x2 = EvaluationStack.Pop().GetBigInteger();
+                                //BigInteger x1 = EvaluationStack.Pop().GetBigInteger();
+                                //EvaluationStack.Push(x1 > x2);
+
+                                StackItem x2 = EvaluationStack.Pop();
+                                StackItem x1 = EvaluationStack.Pop();
+
+                                temp = getVariable();
+
+                                stackItem = new StackItem();
+                                stackItem.name = temp;
+                                stackItem.type = Type.boolen;
+                                stackItem.flag = x1.integer > x2.integer;
+                                EvaluationStack.Push(stackItem);
+                                src += "\t" + temp + "=" + x1.name + ">" + x2.name + ";\n";
+
+                                EvaluationStack.Push(stackItem);
                             }
                             break;
                         case OpCode.LTE:
                             {
-                                BigInteger x2 = EvaluationStack.Pop().GetBigInteger();
-                                BigInteger x1 = EvaluationStack.Pop().GetBigInteger();
-                                EvaluationStack.Push(x1 <= x2);
+                                //BigInteger x2 = EvaluationStack.Pop().GetBigInteger();
+                                //BigInteger x1 = EvaluationStack.Pop().GetBigInteger();
+                                //EvaluationStack.Push(x1 <= x2);
+                                StackItem x2 = EvaluationStack.Pop();
+                                StackItem x1 = EvaluationStack.Pop();
+
+                                temp = getVariable();
+
+                                stackItem = new StackItem();
+                                stackItem.name = temp;
+                                stackItem.type = Type.boolen;
+                                stackItem.flag = x1.integer <= x2.integer;
+                                EvaluationStack.Push(stackItem);
+                                src += "\t" + temp + "=" + x1.name + "<=" + x2.name + ";\n";
+
+                                EvaluationStack.Push(stackItem);
                             }
                             break;
                         case OpCode.GTE:
                             {
-                                BigInteger x2 = EvaluationStack.Pop().GetBigInteger();
-                                BigInteger x1 = EvaluationStack.Pop().GetBigInteger();
-                                EvaluationStack.Push(x1 >= x2);
+                                //BigInteger x2 = EvaluationStack.Pop().GetBigInteger();
+                                //BigInteger x1 = EvaluationStack.Pop().GetBigInteger();
+                                //EvaluationStack.Push(x1 >= x2);
+                                StackItem x2 = EvaluationStack.Pop();
+                                StackItem x1 = EvaluationStack.Pop();
+
+                                temp = getVariable();
+
+                                stackItem = new StackItem();
+                                stackItem.name = temp;
+                                stackItem.type = Type.boolen;
+                                stackItem.flag = x1.integer >= x2.integer;
+                                EvaluationStack.Push(stackItem);
+                                src += "\t" + temp + "=" + x1.name + ">=" + x2.name + ";\n";
+
+                                EvaluationStack.Push(stackItem);
                             }
                             break;
                         case OpCode.MIN:
                             {
-                                BigInteger x2 = EvaluationStack.Pop().GetBigInteger();
-                                BigInteger x1 = EvaluationStack.Pop().GetBigInteger();
-                                EvaluationStack.Push(BigInteger.Min(x1, x2));
+                                //BigInteger x2 = EvaluationStack.Pop().GetBigInteger();
+                                //BigInteger x1 = EvaluationStack.Pop().GetBigInteger();
+                                //EvaluationStack.Push(BigInteger.Min(x1, x2));
+                                StackItem x2 = EvaluationStack.Pop();
+                                StackItem x1 = EvaluationStack.Pop();
+
+                                temp = getVariable();
+
+                                stackItem = new StackItem();
+                                stackItem.name = temp;
+                                stackItem.type = Type.integer;
+                                stackItem.integer = Math.Min(x1.integer, x2.integer);
+                                EvaluationStack.Push(stackItem);
+                                src += "\t" + temp + "= Min(" + x1.name + "," + x2.name + ");\n";
+
+                                EvaluationStack.Push(stackItem);
                             }
                             break;
                         case OpCode.MAX:
                             {
+                                //BigInteger x2 = EvaluationStack.Pop().GetBigInteger();
+                                //BigInteger x1 = EvaluationStack.Pop().GetBigInteger();
+                                //EvaluationStack.Push(BigInteger.Max(x1, x2));
 
-                                BigInteger x2 = EvaluationStack.Pop().GetBigInteger();
-                                BigInteger x1 = EvaluationStack.Pop().GetBigInteger();
-                                EvaluationStack.Push(BigInteger.Max(x1, x2));
+                                StackItem x2 = EvaluationStack.Pop();
+                                StackItem x1 = EvaluationStack.Pop();
+
+                                temp = getVariable();
+
+                                stackItem = new StackItem();
+                                stackItem.name = temp;
+                                stackItem.type = Type.integer;
+                                stackItem.integer = Math.Max(x1.integer, x2.integer);
+                                EvaluationStack.Push(stackItem);
+                                src += "\t" + temp + "= Max(" + x1.name + "," + x2.name + ");\n";
+
+                                EvaluationStack.Push(stackItem);
                             }
                             break;
                         case OpCode.WITHIN:
                             {
-                                BigInteger b = EvaluationStack.Pop().GetBigInteger();
-                                BigInteger a = EvaluationStack.Pop().GetBigInteger();
-                                BigInteger x = EvaluationStack.Pop().GetBigInteger();
-                                EvaluationStack.Push(a <= x && x < b);
+                                //BigInteger b = EvaluationStack.Pop().GetBigInteger();
+                                //BigInteger a = EvaluationStack.Pop().GetBigInteger();
+                                //BigInteger x = EvaluationStack.Pop().GetBigInteger();
+                                //EvaluationStack.Push(a <= x && x < b);
+                                StackItem x2 = EvaluationStack.Pop();
+                                StackItem x1 = EvaluationStack.Pop();
+                                StackItem x = EvaluationStack.Pop();
+
+                                temp = getVariable();
+
+                                stackItem = new StackItem();
+                                stackItem.name = temp;
+                                stackItem.type = Type.boolen;
+                                stackItem.flag = (x1.integer<=x.integer && x.integer<x2.integer);
+                                EvaluationStack.Push(stackItem);
+
+                                src += "\t" + temp + "= " + x1.name + "<="+x.name+"&&"+ x.name+"<" + x2.name + ";\n";
+
+                                EvaluationStack.Push(stackItem);
                             }
                             break;
 
                         // Crypto
                         case OpCode.SHA1:
-                            //using (SHA1 sha = SHA1.Create())
-                            //{
-                            //    byte[] x = EvaluationStack.Pop().GetByteArray();
-                            //    EvaluationStack.Push(sha.ComputeHash(x));
-                            //}
+                            using (SHA1 sha = SHA1.Create())
+                            {
+                                StackItem x = EvaluationStack.Pop();
+                                x.byteArray = sha.ComputeHash(x.byteArray);
+                                src += "\t" + x.name + "= SHA256(" + x.name + ");\n";
+                                EvaluationStack.Push(x);
+                            }
+
                             break;
                         case OpCode.SHA256:
-                            //using (SHA256 sha = SHA256.Create())
-                            //{
-                            //    byte[] x = EvaluationStack.Pop().GetByteArray();
-                            //    EvaluationStack.Push(sha.ComputeHash(x));
-                            //}
+                            using (SHA256 sha = SHA256.Create())
+                            {
+                                StackItem x = EvaluationStack.Pop();
+                                x.byteArray = sha.ComputeHash(x.byteArray);
+                                src += "\t" + x.name + "= SHA256(" + x.name +");\n";
+                                EvaluationStack.Push(x);
+                            }
                             break;
                         case OpCode.HASH160:
                             {
                                 //byte[] x = EvaluationStack.Pop().GetByteArray();
                                 //EvaluationStack.Push(Crypto.Hash160(x));
+                                StackItem x = EvaluationStack.Pop();
+                                x.byteArray = Crypto.Hash160(x.byteArray);
+                                src += "\t" + x.name + "= Hash160(" + x.name + ");\n";
+                                EvaluationStack.Push(x);
                             }
                             break;
                         case OpCode.HASH256:
                             {
                                 //byte[] x = EvaluationStack.Pop().GetByteArray();
                                 //EvaluationStack.Push(Crypto.Hash256(x));
+                                StackItem x = EvaluationStack.Pop();
+                                x.byteArray = Crypto.Hash256(x.byteArray);
+                                src += "\t" + x.name + "= Hash256(" + x.name + ");\n";
+                                EvaluationStack.Push(x);
                             }
                             break;
                         case OpCode.CHECKSIG:
                             {
                                 //byte[] pubkey = EvaluationStack.Pop().GetByteArray();
                                 //byte[] signature = EvaluationStack.Pop().GetByteArray();
-                                //try
-                                //{
-                                //    EvaluationStack.Push(Crypto.VerifySignature(ScriptContainer.GetMessage(), signature, pubkey));
-                                //}
-                                //catch (ArgumentException)
-                                //{
-                                //    EvaluationStack.Push(false);
-                                //}
+                                //EvaluationStack.Push(Crypto.VerifySignature(ScriptContainer.GetMessage(), signature, pubkey));
+
+                                src += "\t CHECKSIG();\n";
+
                             }
                             break;
                         case OpCode.VERIFY:
@@ -660,20 +938,41 @@ namespace NEODisassembler
                         case OpCode.ARRAYSIZE:
                             {
                                 StackItem item = EvaluationStack.Pop();
-                                if (item is ICollection collection)
-                                    EvaluationStack.Push(collection.Count);
-                                else
-                                    EvaluationStack.Push(item.GetByteArray().Length);
+                                temp = getVariable();
+
+                                stackItem = new StackItem();
+                                stackItem.name = temp;
+                                stackItem.type = Type.integer;
+                                stackItem.integer = item.byteArray.Length;
+                                EvaluationStack.Push(stackItem);
+
+                                src += "\t" + temp + "= " + item.name + ".Length;\n";
+                                EvaluationStack.Push(stackItem);
                             }
                             break;
                         case OpCode.PACK:
                             {
-                                int size = (int)EvaluationStack.Pop().GetBigInteger();
+                                StackItem size = EvaluationStack.Pop();
 
-                                List<StackItem> items = new List<StackItem>(size);
-                                for (int i = 0; i < size; i++)
-                                    items.Add(EvaluationStack.Pop());
-                                EvaluationStack.Push(items);
+                                List<StackItem> items = new List<StackItem>(size.integer);
+
+                                temp = getVariable();
+
+                                stackItem = new StackItem();
+                                stackItem.name = temp;
+                                stackItem.type = Type.array;
+                                stackItem.arr = items;
+                                EvaluationStack.Push(stackItem);
+
+                                src += "\t List<?>" + temp + "= new List<?>(" + size.name + ");\n";
+                                StackItem it;
+                                for (int i = 0; i < size.integer; i++)
+                                {
+                                    it = EvaluationStack.Pop();
+                                    items.Add(it);
+                                    src += "\t" + temp + ".Add(" + it.name + ");\n";
+                                }
+                                EvaluationStack.Push(stackItem);
                             }
                             break;
                         case OpCode.UNPACK:
@@ -896,6 +1195,6 @@ namespace NEODisassembler
                     }
             }
         }
-               
-        }
+
+    }
 }
