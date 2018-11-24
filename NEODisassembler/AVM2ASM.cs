@@ -93,6 +93,7 @@ namespace NEODisassembler
                                 o.needfixfunc = true;
                                 break;
                             case OpCode.RET:
+                                ExecutionEngine.ExecuteOp(method);
                                 o.paramType = ParamType.None;
                                 // If it is not the end, create a new method and store it into the neomodule
                                 // The name of new method is sub_ and the address
@@ -208,9 +209,10 @@ namespace NEODisassembler
                         }
                     }
                 }
-                catch
+                catch(Exception err)
                 {
                     o.error = true;
+                    Console.WriteLine(err.Data);
                 }
                 arr.Add(o);
                 // Store the neo code into the method
@@ -218,6 +220,7 @@ namespace NEODisassembler
                 if (o.error)
                     break;
             }
+
             return arr.ToArray();
         }
     }

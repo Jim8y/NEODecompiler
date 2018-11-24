@@ -1,31 +1,31 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
-using VMArray = NEODisassembler.Array;
 using System.Security.Cryptography;
+
 namespace NEODisassembler
 {
 
-    public class ExecutionEngine
+    public static class ExecutionEngine
     {
-        private int variable_count = -1;
-        public Stack<StackItem> InvocationStack { get; } = new Stack<StackItem>();
-        public Stack<StackItem> EvaluationStack = new Stack<StackItem>();
-        public Stack<StackItem> AltStack { get; } = new Stack<StackItem>();
+        private static int variable_count = -1;
+        public static Stack<StackItem> InvocationStack { get; } = new Stack<StackItem>();
+        public static Stack<StackItem> EvaluationStack = new Stack<StackItem>();
+        public static Stack<StackItem> AltStack { get; } = new Stack<StackItem>();
 
 
-        private string getVariable()
+        private static string getVariable()
         {
             variable_count++;
-            return  "$v_" + variable_count;
+            return "$v_" + variable_count;
         }
-        public T[] SubArray<T>(this T[] data, int index, int length)
+        private static T[] SubArray<T>(this T[] data, int index, int length)
         {
             T[] result = new T[length];
             System.Array.Copy(data, index, result, 0, length);
             return result;
         }
-        private void ExecuteOp(NeoMethod method, ExecutionContext context)
+        public static void ExecuteOp(NeoMethod method)
         {
             // TODO: parameter of function
             string src = "function " + method.name + "() {\n";
@@ -34,18 +34,18 @@ namespace NEODisassembler
 
             StackItem stackItem;
             string temp = "";
-          foreach(NeoCode opcode in method.neoCodes)
+            foreach (NeoCode opcode in method.neoCodes)
             {
 
                 if (opcode.code >= OpCode.PUSHBYTES1 && opcode.code <= OpCode.PUSHBYTES75)
                 {
                     stackItem = new StackItem();
-                    stackItem.name = temp =getVariable();
+                    stackItem.name = temp = getVariable();
                     stackItem.type = Type.bytearray;
                     stackItem.byteArray = opcode.paramData;
                     EvaluationStack.Push(stackItem);
 
-                    src += "\tbyte[]"+ temp+"= new byte[](\""+opcode.paramData.ToString()+"\");" +"\n";
+                    src += "\tbyte[]" + temp + "= new byte[](\"" + opcode.paramData.ToString() + "\");" + "\n";
                     variable_count++;
                 }
                 else
@@ -97,7 +97,7 @@ namespace NEODisassembler
                             stackItem.type = Type.integer;
                             stackItem.integer = (int)opcode.code - (int)OpCode.PUSH1 + 1;
                             EvaluationStack.Push(stackItem);
-                            src += "\t" + temp + " = 0;\n";
+                            src += "\t" + temp + " = "+ ((int)opcode.code - (int)OpCode.PUSH1 + 1)+";\n";
                             break;
 
                         // Control
@@ -107,27 +107,28 @@ namespace NEODisassembler
                         case OpCode.JMPIF:
                         case OpCode.JMPIFNOT:
                             {
-                                int offset = context.OpReader.ReadInt16();
-                                offset = context.InstructionPointer + offset - 3;
-                                if (offset < 0 || offset > context.Script.Length)
-                                {
-                                    return;
-                                }
-                                bool fValue = true;
-                                if (opcode.code > OpCode.JMP)
-                                {
-                                    fValue = EvaluationStack.Pop().GetBoolean();
-                                    if (opcode == OpCode.JMPIFNOT)
-                                        fValue = !fValue;
-                                }
-                                if (fValue)
-                                    context.InstructionPointer = offset;
+                                //src+="\t"+
+                                //int offset = context.OpReader.ReadInt16();
+                                //offset = context.InstructionPointer + offset - 3;
+                                //if (offset < 0 || offset > context.Script.Length)
+                                //{
+                                //    return;
+                                //}
+                                //bool fValue = true;
+                                //if (opcode.code > OpCode.JMP)
+                                //{
+                                //    fValue = EvaluationStack.Pop().GetBoolean();
+                                //    if (opcode == OpCode.JMPIFNOT)
+                                //        fValue = !fValue;
+                                //}
+                                //if (fValue)
+                                //    context.InstructionPointer = offset;
                             }
                             break;
                         case OpCode.CALL:
-                            InvocationStack.Push(context.Clone());
-                            context.InstructionPointer += 2;
-                            ExecuteOp(OpCode.JMP, CurrentContext);
+                            //InvocationStack.Push(context.Clone());
+                            //context.InstructionPointer += 2;
+                            //ExecuteOp(OpCode.JMP, CurrentContext);
                             break;
                         case OpCode.RET:
 
@@ -135,12 +136,32 @@ namespace NEODisassembler
                         case OpCode.APPCALL:
                         case OpCode.TAILCALL:
                             {
-                                src += "APPCALL(\"" + opcode.paramData.ToString() + "\");\n";
+                                src += "\tAPPCALL(\"" + opcode.paramData.ToString() + "\");\n";
                             }
                             break;
                         case OpCode.SYSCALL:
                             {
+                                //TODO: copmare the function in OpAndSysCall
+                                OpAndCall call= OpAndSysCall.sysCall[opcode.AsString()];
+                                // param of call funtion
+                                if(call.push == 1)
+                                {
+                                    temp = getVariable();
 
+                                    stackItem = new StackItem();
+                                    stackItem.name = temp;
+                                    stackItem.type = Type.integer;
+                                    stackItem.integer = EvaluationStack.Count;
+                                    EvaluationStack.Push(stackItem);
+                                    src += "\t" + temp + " = " +opcode.AsString()+"(";
+                                    EvaluationStack.Push(stackItem);
+                                }
+
+                                for (int i = 0; i < call.pop; i++)
+                                {
+                                    src += "" + EvaluationStack.Pop().name+", ";
+                                }
+                                src += ");\n";
                             }
                             break;
 
@@ -156,38 +177,38 @@ namespace NEODisassembler
                             break;
                         case OpCode.XDROP:
                             {
-                                int n = EvaluationStack.Pop().integer;
-                                if (n < 0)
-                                {
-                                    return;
-                                }
-                                EvaluationStack.Remove(n);
+                                //int n = EvaluationStack.Pop().integer;
+                                //if (n < 0)
+                                //{
+                                //    return;
+                                //}
+                                //EvaluationStack.Remove(n);
                             }
                             break;
                         case OpCode.XSWAP:
                             {
-                                int n = EvaluationStack.Pop().integer;
-                                if (n < 0)
-                                {
+                                //int n = EvaluationStack.Pop().integer;
+                                //if (n < 0)
+                                //{
 
-                                    return;
-                                }
-                                if (n == 0) break;
+                                //    return;
+                                //}
+                                //if (n == 0) break;
 
-                                StackItem xn = EvaluationStack.Peek(n);
-                                EvaluationStack.Set(n, EvaluationStack.Peek());
-                                EvaluationStack.Set(0, xn);
+                                //StackItem xn = EvaluationStack.Peek(n);
+                                //EvaluationStack.Set(n, EvaluationStack.Peek());
+                                //EvaluationStack.Set(0, xn);
                             }
                             break;
                         case OpCode.XTUCK:
                             {
-                                int n = (int)EvaluationStack.Pop().GetBigInteger();
-                                if (n <= 0)
-                                {
+                                //int n = (int)EvaluationStack.Pop().GetBigInteger();
+                                //if (n <= 0)
+                                //{
 
-                                    return;
-                                }
-                                EvaluationStack.Insert(n, EvaluationStack.Peek());
+                                //    return;
+                                //}
+                                //EvaluationStack.Insert(n, EvaluationStack.Peek());
                             }
                             break;
                         case OpCode.DEPTH:
@@ -198,9 +219,8 @@ namespace NEODisassembler
                             stackItem.type = Type.integer;
                             stackItem.integer = EvaluationStack.Count;
                             EvaluationStack.Push(stackItem);
-                            src += "\t" + temp + " = "+ EvaluationStack.Count+ ";\n";
+                            src += "\t" + temp + " = " + EvaluationStack.Count + ";\n";
 
-                            EvaluationStack.Push(stackItem);
                             break;
                         case OpCode.DROP:
                             EvaluationStack.Pop();
@@ -225,25 +245,32 @@ namespace NEODisassembler
                             break;
                         case OpCode.PICK:
                             {
-                                int n = EvaluationStack.Pop().integer;
-                                if (n < 0)
-                                {
+                                //int n = EvaluationStack.Pop().integer;
+                                //if (n < 0)
+                                //{
 
-                                    return;
-                                }
-                                EvaluationStack.Push(EvaluationStack.Peek(n));
+                                //    return;
+                                //}
+                                //EvaluationStack.Push(EvaluationStack.Peek(n));
                             }
                             break;
                         case OpCode.ROLL:
                             {
-                                int n = (int)EvaluationStack.Pop().GetBigInteger();
-                                if (n < 0)
-                                {
+                                StackItem n = EvaluationStack.Pop();
 
-                                    return;
+                                Stack<StackItem> st = new Stack<StackItem>();
+
+                                for(int i = 0; i < n.integer; i++)
+                                {
+                                    st.Push(EvaluationStack.Pop());
                                 }
-                                if (n == 0) break;
-                                EvaluationStack.Push(EvaluationStack.Remove(n));
+                                StackItem target = EvaluationStack.Pop();
+
+                                while (st.Count != 0)
+                                {
+                                    EvaluationStack.Push(st.Pop());
+                                }
+                                EvaluationStack.Push(target);
                             }
                             break;
                         case OpCode.ROT:
@@ -254,7 +281,7 @@ namespace NEODisassembler
                                 EvaluationStack.Push(x2);
                                 EvaluationStack.Push(x3);
                                 EvaluationStack.Push(x1);
-                                
+
                             }
                             break;
                         case OpCode.SWAP:
@@ -292,7 +319,7 @@ namespace NEODisassembler
                                 stackItem.byteArray = x3;
                                 EvaluationStack.Push(stackItem);
 
-                                src += "\tbyte[]" + temp + "= new byte["+len+"];" + "\n";
+                                src += "\tbyte[]" + temp + "= new byte[" + len + "];" + "\n";
                                 src += x1.name + ".CopyTo(" + temp + ", 0);\n";
                                 src += x2.name + ".CopyTo(" + temp + ", " + x1.name + ".Length);\n";
 
@@ -336,23 +363,23 @@ namespace NEODisassembler
                             break;
                         case OpCode.RIGHT:
                             {
-                                int count = (int)EvaluationStack.Pop().integer;
-                                if (count < 0)
-                                {
+                                //    int count = (int)EvaluationStack.Pop().integer;
+                                //    if (count < 0)
+                                //    {
 
-                                    return;
-                                }
-                               StackItem x = EvaluationStack.Pop();
-                                if (x.byteArray.Length < count)
-                                {
+                                //        return;
+                                //    }
+                                //    StackItem x = EvaluationStack.Pop();
+                                //    if (x.byteArray.Length < count)
+                                //    {
 
-                                    return;
-                                }
-                                src += "\t" + x.name + "=" + x.name + ".substr(0, " + count + ");\n";
-                                x.byteArray = SubArray<byte>(x.byteArray, 0, count);
-                                EvaluationStack.Push(x);
+                                //        return;
+                                //    }
+                                //    src += "\t" + x.name + "=" + x.name + ".substr(0, " + count + ");\n";
+                                //    x.byteArray = SubArray<byte>(x.byteArray, 0, count);
+                                //    EvaluationStack.Push(x);
 
-                                EvaluationStack.Push(x.Skip(x.Length - count).ToArray());
+                                //    EvaluationStack.Push(x.Skip(x.Length - count).ToArray());
                             }
                             break;
                         case OpCode.SIZE:
@@ -390,9 +417,9 @@ namespace NEODisassembler
                                 stackItem = new StackItem();
                                 stackItem.name = temp;
                                 stackItem.type = Type.integer;
-                                stackItem.integer = x2.integer&x1.integer;
+                                stackItem.integer = x2.integer & x1.integer;
                                 EvaluationStack.Push(stackItem);
-                                src += "\t" + temp +"="+ x2.name+"&"+x1.name+";\n";
+                                src += "\t" + temp + "=" + x2.name + "&" + x1.name + ";\n";
 
                                 EvaluationStack.Push(stackItem);
                             }
@@ -504,7 +531,7 @@ namespace NEODisassembler
                                 stackItem = new StackItem();
                                 stackItem.name = temp;
                                 stackItem.type = Type.boolen;
-                                stackItem.flag = x.integer !=0 ;
+                                stackItem.flag = x.integer != 0;
 
                                 src += "\t" + temp + "=" + x.name + "!=0" + ";\n";
 
@@ -543,7 +570,7 @@ namespace NEODisassembler
                                 src += "\t" + temp + "=" + x1.name + "-" + x2.name + ";\n";
 
                                 EvaluationStack.Push(stackItem);
- 
+
                             }
                             break;
                         case OpCode.MUL:
@@ -855,10 +882,10 @@ namespace NEODisassembler
                                 stackItem = new StackItem();
                                 stackItem.name = temp;
                                 stackItem.type = Type.boolen;
-                                stackItem.flag = (x1.integer<=x.integer && x.integer<x2.integer);
+                                stackItem.flag = (x1.integer <= x.integer && x.integer < x2.integer);
                                 EvaluationStack.Push(stackItem);
 
-                                src += "\t" + temp + "= " + x1.name + "<="+x.name+"&&"+ x.name+"<" + x2.name + ";\n";
+                                src += "\t" + temp + "= " + x1.name + "<=" + x.name + "&&" + x.name + "<" + x2.name + ";\n";
 
                                 EvaluationStack.Push(stackItem);
                             }
@@ -880,7 +907,7 @@ namespace NEODisassembler
                             {
                                 StackItem x = EvaluationStack.Pop();
                                 x.byteArray = sha.ComputeHash(x.byteArray);
-                                src += "\t" + x.name + "= SHA256(" + x.name +");\n";
+                                src += "\t" + x.name + "= SHA256(" + x.name + ");\n";
                                 EvaluationStack.Push(x);
                             }
                             break;
@@ -977,206 +1004,192 @@ namespace NEODisassembler
                             break;
                         case OpCode.UNPACK:
                             {
-                                StackItem item = EvaluationStack.Pop();
-                                if (item is VMArray array)
-                                {
-                                    for (int i = array.Count - 1; i >= 0; i--)
-                                        EvaluationStack.Push(array[i]);
-                                    EvaluationStack.Push(array.Count);
-                                }
+                                //StackItem item = EvaluationStack.Pop();
+                                //if (item is VMArray array)
+                                //{
+                                //    for (int i = array.Count - 1; i >= 0; i--)
+                                //        EvaluationStack.Push(array[i]);
+                                //    EvaluationStack.Push(array.Count);
+                                //}
 
                             }
                             break;
                         case OpCode.PICKITEM:
                             {
                                 StackItem key = EvaluationStack.Pop();
+                                StackItem x = EvaluationStack.Pop();
+                                StackItem v = x.arr[key.integer];
+                                src += "\t" + v.name + "=" + x.name + "[" + key.name + "];\n";
 
-                                switch (EvaluationStack.Pop())
-                                {
-                                    case VMArray array:
-                                        int index = (int)key.GetBigInteger();
-
-                                        EvaluationStack.Push(array[index]);
-                                        break;
-                                    case Map map:
-                                        if (map.TryGetValue(key, out StackItem value))
-                                        {
-                                            EvaluationStack.Push(value);
-                                        }
-
-                                        break;
-                                    default:
-                                        return;
-                                }
+                                EvaluationStack.Push(x);
                             }
                             break;
                         case OpCode.SETITEM:
                             {
                                 StackItem value = EvaluationStack.Pop();
-                                if (value is Struct s) value = s.Clone();
+                                //          if (value is Struct s) value = s.Clone();
                                 StackItem key = EvaluationStack.Pop();
-
-                                switch (EvaluationStack.Pop())
+                                StackItem x = EvaluationStack.Pop();
+                                if (x.type == Type.array)
                                 {
-                                    case VMArray array:
-                                        int index = (int)key.GetBigInteger();
+                                    int index = (int)key.integer;
 
-                                        array[index] = value;
-                                        break;
-                                    case Map map:
-                                        map[key] = value;
-                                        break;
-                                    default:
-                                        return;
+                                    x.arr[index] = value;
+                                    src += "\t" + x.name + "[" + key.name + "] = " + value.name + ";\n";
                                 }
+                                else
+                                {
+                                    //x.map[key] = value;
+                                }
+                                EvaluationStack.Push(x);
                             }
                             break;
                         case OpCode.NEWARRAY:
                             {
-                                int count = (int)EvaluationStack.Pop().GetBigInteger();
-                                List<StackItem> items = new List<StackItem>(count);
-                                for (var i = 0; i < count; i++)
+                                StackItem count = EvaluationStack.Pop();
+                                List<StackItem> items = new List<StackItem>(count.integer);
+                                var temp1 = getVariable();
+                                StackItem stackItem1 = new StackItem();
+                                stackItem1.name = temp1;
+                                stackItem1.type = Type.array;
+                                src += "\t Array<?>" + temp1 + "= new Array<?>(" + count.name + ");\n";
+
+                                for (var i = 0; i < count.integer; i++)
                                 {
-                                    items.Add(false);
+                                    temp = getVariable();
+
+                                    stackItem = new StackItem();
+                                    stackItem.name = temp;
+                                    stackItem.type = Type.boolen;
+                                    stackItem.flag = false;
+                                    items.Add(stackItem);
+                                    src += "\t" + temp1 + ".Add(" + temp + ");\n";
                                 }
-                                EvaluationStack.Push(new Array(items));
+                                stackItem1.arr = items;
+                                EvaluationStack.Push(stackItem1);
                             }
                             break;
                         case OpCode.NEWSTRUCT:
                             {
-                                int count = (int)EvaluationStack.Pop().GetBigInteger();
-                                List<StackItem> items = new List<StackItem>(count);
-                                for (var i = 0; i < count; i++)
-                                {
-                                    items.Add(false);
-                                }
-                                EvaluationStack.Push(new VM.Types.Struct(items));
+                                //int count = (int)EvaluationStack.Pop().GetBigInteger();
+                                //List<StackItem> items = new List<StackItem>(count);
+                                //for (var i = 0; i < count; i++)
+                                //{
+                                //    items.Add(false);
+                                //}
+                                //EvaluationStack.Push(new VM.Types.Struct(items));
                             }
                             break;
                         case OpCode.NEWMAP:
-                            EvaluationStack.Push(new Map());
+                            //EvaluationStack.Push(new Map());
                             break;
                         case OpCode.APPEND:
                             {
                                 StackItem newItem = EvaluationStack.Pop();
-                                if (newItem is Types.Struct s)
-                                {
-                                    newItem = s.Clone();
-                                }
                                 StackItem arrItem = EvaluationStack.Pop();
-                                if (arrItem is VMArray array)
-                                {
-                                    array.Add(newItem);
-                                }
-                                else
-                                {
-                                    State |= VMState.FAULT;
-                                    return;
-                                }
+                                arrItem.arr.Add(newItem);
+
+                                src += "\t" + arrItem.name + ".Add(" + newItem.name + ");\n";
+
+                                EvaluationStack.Push(arrItem);
                             }
                             break;
                         case OpCode.REVERSE:
                             {
                                 StackItem arrItem = EvaluationStack.Pop();
-                                if (arrItem is VMArray array)
-                                {
-                                    array.Reverse();
-                                }
-                                else
-                                {
-                                    State |= VMState.FAULT;
-                                    return;
-                                }
+                                arrItem.arr.Reverse();
+                                src += "\t" + arrItem.name + ".Reverse();\n";
+                                EvaluationStack.Push(arrItem);
                             }
                             break;
                         case OpCode.REMOVE:
                             {
                                 StackItem key = EvaluationStack.Pop();
-                                if (key is ICollection)
-                                {
-                                    State |= VMState.FAULT;
-                                    return;
-                                }
-                                switch (EvaluationStack.Pop())
-                                {
-                                    case VMArray array:
-                                        int index = (int)key.GetBigInteger();
-                                        if (index < 0 || index >= array.Count)
-                                        {
-                                            State |= VMState.FAULT;
-                                            return;
-                                        }
-                                        array.RemoveAt(index);
-                                        break;
-                                    case Map map:
-                                        map.Remove(key);
-                                        break;
-                                    default:
-                                        State |= VMState.FAULT;
-                                        return;
-                                }
+                                //if (key is ICollection)
+                                //{
+                                //    State |= VMState.FAULT;
+                                //    return;
+                                //}
+                                //switch (EvaluationStack.Pop())
+                                //{
+                                //    case VMArray array:
+                                //        int index = (int)key.GetBigInteger();
+                                //        if (index < 0 || index >= array.Count)
+                                //        {
+                                //            State |= VMState.FAULT;
+                                //            return;
+                                //        }
+                                //        array.RemoveAt(index);
+                                //        break;
+                                //    case Map map:
+                                //        map.Remove(key);
+                                //        break;
+                                //    default:
+                                //        State |= VMState.FAULT;
+                                //        return;
+                                //}
                             }
                             break;
                         case OpCode.HASKEY:
                             {
                                 StackItem key = EvaluationStack.Pop();
-                                if (key is ICollection)
+                                StackItem x = EvaluationStack.Pop();
+
+
+                                temp = getVariable();
+
+                                stackItem = new StackItem();
+                                stackItem.name = temp;
+                                stackItem.type = Type.boolen;
+
+                                if (x.type == Type.array)
                                 {
-                                    State |= VMState.FAULT;
-                                    return;
+                                    int index = (int)key.integer;
+
+                                    stackItem.flag = index < x.arr.Count;
                                 }
-                                switch (EvaluationStack.Pop())
+                                else
                                 {
-                                    case VMArray array:
-                                        int index = (int)key.GetBigInteger();
-                                        if (index < 0)
-                                        {
-                                            State |= VMState.FAULT;
-                                            return;
-                                        }
-                                        EvaluationStack.Push(index < array.Count);
-                                        break;
-                                    case Map map:
-                                        EvaluationStack.Push(map.ContainsKey(key));
-                                        break;
-                                    default:
-                                        State |= VMState.FAULT;
-                                        return;
+                                    stackItem.flag = x.arr.Contains(key);
                                 }
+
+                                src += "\t" + temp + x.name + ".Contains(" + key.name + ");\n";
+                                EvaluationStack.Push(stackItem);
+
                             }
                             break;
                         case OpCode.KEYS:
-                            switch (EvaluationStack.Pop())
-                            {
-                                case Map map:
-                                    EvaluationStack.Push(new VMArray(map.Keys));
-                                    break;
-                                default:
-                                    State |= VMState.FAULT;
-                                    return;
-                            }
+                            //switch (EvaluationStack.Pop())
+                            //{
+                            //    case Map map:
+                            //        EvaluationStack.Push(new VMArray(map.Keys));
+                            //        break;
+                            //    default:
+                            //        State |= VMState.FAULT;
+                            //        return;
+                            //}
                             break;
                         case OpCode.VALUES:
                             {
                                 ICollection<StackItem> values;
-                                switch (EvaluationStack.Pop())
-                                {
-                                    case VMArray array:
-                                        values = array;
-                                        break;
-                                    case Map map:
-                                        values = map.Values;
-                                        break;
-                                    default:
-                                        return;
-                                }
-                                List<StackItem> newArray = new List<StackItem>(values.Count);
-                                foreach (StackItem item in values)
-                                    if (item is Struct s)
-                                        newArray.Add(s.Clone());
-                                    else
-                                        newArray.Add(item);
-                                EvaluationStack.Push(new VMArray(newArray));
+                                //switch (EvaluationStack.Pop())
+                                //{
+                                //    case VMArray array:
+                                //        values = array;
+                                //        break;
+                                //    case Map map:
+                                //        values = map.Values;
+                                //        break;
+                                //    default:
+                                //        return;
+                                //}
+                                //List<StackItem> newArray = new List<StackItem>(values.Count);
+                                ////foreach (StackItem item in values)
+                                ////    if (item is Struct s)
+                                ////        newArray.Add(s.Clone());
+                                ////    else
+                                ////        newArray.Add(item);
+                                //EvaluationStack.Push(new VMArray(newArray));
                             }
                             break;
 
@@ -1184,7 +1197,7 @@ namespace NEODisassembler
                         case OpCode.THROW:
                             return;
                         case OpCode.THROWIFNOT:
-                            if (!EvaluationStack.Pop().GetBoolean())
+                            if (!EvaluationStack.Pop().flag)
                             {
                                 return;
                             }
@@ -1194,6 +1207,8 @@ namespace NEODisassembler
                             return;
                     }
             }
+
+            Console.WriteLine(src);
         }
 
     }

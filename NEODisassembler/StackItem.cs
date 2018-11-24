@@ -18,9 +18,8 @@ namespace NEODisassembler
         public List<StackItem> arr;
         public bool flag;
         public byte[] byteArray;
-        public Map map;
+        //public Map map;
         public int integer;
-        public struct stru;
     }
 
 }
