@@ -160,7 +160,7 @@ private static void addReference(string name){
                                     stackItem.type = Type.integer;
                                     stackItem.integer = EvaluationStack.Count;
                                     EvaluationStack.Push(stackItem);
-                                    src_code.Enqueue( "    byte[] " + temp + " = " +opcode.AsString()+"(";
+                                    src_code.Enqueue( "    byte[] " + temp + " = " +opcode.AsString()+"(");
                                     EvaluationStack.Push(stackItem);
                                 }
 
@@ -168,7 +168,7 @@ private static void addReference(string name){
                                 {
                                     string name = EvaluationStack.Pop().name;
                                     addReference(name);
-                                    src_code.Enqueue( "" + name +", ";
+                                    src_code.Enqueue( "" + name +", ");
                                 }
                                 src_code.Enqueue( ");");
                             }
@@ -1276,9 +1276,9 @@ private static void addReference(string name){
             foreach( string number in src_code )
             {
                 bool print = true;
-                foreach(var item in myDictionary)
+                foreach(var item in variables)
                 {
-                    if(item.value ==1 && number.Contains(item.key)){
+                    if(item.Value ==1 && number.Contains(item.Key)){
                         print = false;
                     }
                 }

@@ -24,26 +24,22 @@ This is a NEO smart contract decompiler, still under developing.
 ```
 function Main() {
     int v_0 = 4;
-    Array<?> v_1= new Array<?>(v_0);
+    Array<?> v_1 = new Array<?>(v_0);
     int v_6 = 2;
     int v_7 = 0;
-    int v_8 = 2;
     v_1[v_7] = v_6;
-    byte[]v_9= new byte[]("hello");
+    byte[] v_9= new byte[]("hello");
     int v_10 = 1;
-    int v_11 = 2;
     v_1[v_10] = v_9;
-    byte[]v_12= new byte[]("world");
+    byte[] v_12= new byte[]("world");
     int v_13 = 2;
-    int v_14 = 2;
     v_1[v_13] = v_12;
     int v_15 = 1;
-    v_9=v_1[v_15];
+    v_9 = v_1[v_15];
     int v_16 = 2;
-    v_12=v_1[v_16];
+    v_12 = v_1[v_16];
     byte[] v_17= v_9+v_12
     int v_18 = 3;
-    int v_19 = 2;
     v_1[v_18] = v_17;
 }
 
