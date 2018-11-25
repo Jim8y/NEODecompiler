@@ -126,6 +126,9 @@ namespace NEODisassembler
         }
         public string AsString()
         {
+          //   Array.Reverse<byte>(this.paramData);
+            //Console.WriteLine(this.AsHexString());
+            //Console.WriteLine();
             return Encoding.UTF8.GetString(this.paramData);
         }
         public int AsAddr()

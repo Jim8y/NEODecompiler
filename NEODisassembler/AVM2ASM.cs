@@ -212,7 +212,7 @@ namespace NEODisassembler
                 catch(Exception err)
                 {
                     o.error = true;
-                    Console.WriteLine(err.Data);
+                    Console.WriteLine("Open File Error:" + err.ToString());
                 }
                 arr.Add(o);
                 // Store the neo code into the method
