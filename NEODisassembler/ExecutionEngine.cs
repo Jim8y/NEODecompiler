@@ -979,8 +979,18 @@ private static void addReference(string name){
                                 //byte[] pubkey = EvaluationStack.Pop().GetByteArray();
                                 //byte[] signature = EvaluationStack.Pop().GetByteArray();
                                 //EvaluationStack.Push(Crypto.VerifySignature(ScriptContainer.GetMessage(), signature, pubkey));
+                                StackItem pubkey = EvaluationStack.Pop();
+                                StackItem signature = EvaluationStack.Pop();
+                                // TODO:: VerifySignature
+                                temp = "isSignature";
 
-                                src_code.Enqueue( "     CHECKSIG();");
+                                stackItem = new StackItem();
+                                stackItem.name = temp;
+                                stackItem.type = Type.boolen;
+                                stackItem.flag = false;
+                                EvaluationStack.Push(stackItem);
+
+                                src_code.Enqueue(temp +" = Crypto.VerifySignature(ScriptContainer.GetMessage(), "+signature.name+", "+pubkey.name+")");
 
                             }
                             break;
@@ -1108,7 +1118,7 @@ private static void addReference(string name){
                                 StackItem stackItem1 = new StackItem();
                                 stackItem1.name = temp1;
                                 stackItem1.type = Type.array;
-                                src_code.Enqueue( "    Array<?> " + temp1 + " = new Array<?>(" + count.name + ");");
+                                src_code.Enqueue( "    Array " + temp1 + " = new Array<?>(" + count.name + ");");
 
                                 for (var i = 0; i < count.integer; i++)
                                 {
