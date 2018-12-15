@@ -15,7 +15,8 @@ namespace NEODisassembler
         private static Queue<string> src_code = new Queue<string>();
         //Count the reference of variables
         private static Dictionary<string, int> variables = new Dictionary<string, int>();
-
+        // Is processing loop
+        private static int processingLoop = 0;
         private static string getVariable()
         {
             variable_count++;
@@ -62,7 +63,11 @@ namespace NEODisassembler
             string temp = "";
             foreach (NeoCode opcode in method.neoCodes)
             {
-
+                // Process loop
+                if (opcode.beginOfLoop)
+                {
+                    processingLoop ++;
+                }
                 if (opcode.code >= OpCode.PUSHBYTES1 && opcode.code <= OpCode.PUSHBYTES75)
                 {
                     stackItem = new StackItem();
@@ -132,7 +137,8 @@ namespace NEODisassembler
                         case OpCode.JMPIF:
                         case OpCode.JMPIFNOT:
                             {
-                              //Console.WriteLine("jhhhhhh"+opcode.AsAddr());
+                                processingLoop--;
+                                //Console.WriteLine("jhhhhhh"+opcode.AsAddr());
                                 //src+="    "+
                                 //int offset = context.OpReader.ReadInt16();
                                 //offset = context.InstructionPointer + offset - 3;
