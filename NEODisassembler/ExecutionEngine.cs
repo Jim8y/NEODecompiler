@@ -8,24 +8,43 @@ namespace NEODisassembler
 
     public static class ExecutionEngine
     {
-        private static int variable_count = -1;
+        private static int variable_count = -1, variable_count_bool = -1, variable_count_array=-1;
         public static Stack<StackItem> InvocationStack { get; } = new Stack<StackItem>();
         public static Stack<StackItem> EvaluationStack = new Stack<StackItem>();
         public static Stack<StackItem> AltStack { get; } = new Stack<StackItem>();
-        private static Queue<string> src_code= new Queue<string>();
+        private static Queue<string> src_code = new Queue<string>();
         //Count the reference of variables
-        private static Dictionary<string, int> variables = new Dictionary<string,int>();
+        private static Dictionary<string, int> variables = new Dictionary<string, int>();
 
         private static string getVariable()
         {
             variable_count++;
             string vari = "v_" + variable_count;
-            variables[vari]=1;
+            variables[vari] = 1;
             return vari;
         }
-private static void addReference(string name){
-     variables[name]= variables[name]+1;
-}
+
+        private static string getBoolVariable()
+        {
+            variable_count++;
+            string vari = "v_bool_" + variable_count_bool;
+            variables[vari] = 1;
+            return vari;
+        }
+
+        private static string getArrayVariable()
+        {
+            variable_count++;
+            string vari = "v_array_" + variable_count_array;
+            variables[vari] = 1;
+            return vari;
+        }
+
+
+        private static void addReference(string name)
+        {
+            variables[name] = variables[name] + 1;
+        }
         private static T[] SubArray<T>(this T[] data, int index, int length)
         {
             T[] result = new T[length];
@@ -66,7 +85,7 @@ private static void addReference(string name){
                             stackItem.type = Type.integer;
                             stackItem.integer = 0;
                             EvaluationStack.Push(stackItem);
-                            src_code.Enqueue( "    int " + temp + " = 0;");
+                            src_code.Enqueue("    int " + temp + " = 0;");
                             break;
                         case OpCode.PUSHDATA1:
                         case OpCode.PUSHDATA2:
@@ -103,7 +122,7 @@ private static void addReference(string name){
                             stackItem.type = Type.integer;
                             stackItem.integer = (int)opcode.code - (int)OpCode.PUSH1 + 1;
                             EvaluationStack.Push(stackItem);
-                            src_code.Enqueue("    int " + temp + " = "+ ((int)opcode.code - (int)OpCode.PUSH1 + 1)+";");
+                            src_code.Enqueue("    int " + temp + " = " + ((int)opcode.code - (int)OpCode.PUSH1 + 1) + ";");
                             break;
 
                         // Control
@@ -149,9 +168,9 @@ private static void addReference(string name){
                         case OpCode.SYSCALL:
                             {
                                 //TODO: copmare the function in OpAndSysCall
-                                OpAndCall call= OpAndSysCall.sysCall[opcode.AsString()];
+                                OpAndCall call = OpAndSysCall.sysCall[opcode.AsString()];
                                 // param of call funtion
-                                if(call.push == 1)
+                                if (call.push == 1)
                                 {
                                     temp = getVariable();
 
@@ -160,7 +179,7 @@ private static void addReference(string name){
                                     stackItem.type = Type.integer;
                                     stackItem.integer = EvaluationStack.Count;
                                     EvaluationStack.Push(stackItem);
-                                    src_code.Enqueue( "    byte[] " + temp + " = " +opcode.AsString()+"(");
+                                    src_code.Enqueue("    byte[] " + temp + " = " + opcode.AsString() + "(");
                                     EvaluationStack.Push(stackItem);
                                 }
 
@@ -168,9 +187,9 @@ private static void addReference(string name){
                                 {
                                     string name = EvaluationStack.Pop().name;
                                     addReference(name);
-                                    src_code.Enqueue( "" + name +", ");
+                                    src_code.Enqueue("" + name + ", ");
                                 }
-                                src_code.Enqueue( ");");
+                                src_code.Enqueue(");");
                             }
                             break;
 
@@ -228,7 +247,7 @@ private static void addReference(string name){
                             stackItem.type = Type.integer;
                             stackItem.integer = EvaluationStack.Count;
                             EvaluationStack.Push(stackItem);
-                            src_code.Enqueue( "    int " + temp + " = " + EvaluationStack.Count + ";");
+                            src_code.Enqueue("    int " + temp + " = " + EvaluationStack.Count + ";");
 
                             break;
                         case OpCode.DROP:
@@ -269,7 +288,7 @@ private static void addReference(string name){
 
                                 Stack<StackItem> st = new Stack<StackItem>();
 
-                                for(int i = 0; i < n.integer; i++)
+                                for (int i = 0; i < n.integer; i++)
                                 {
                                     st.Push(EvaluationStack.Pop());
                                 }
@@ -329,7 +348,7 @@ private static void addReference(string name){
                                 stackItem.byteArray = x3;
                                 EvaluationStack.Push(stackItem);
 
-                                src_code.Enqueue( "    byte[] " + temp + "= "+ x1.name+ "+"+ x2.name + "");
+                                src_code.Enqueue("    byte[] " + temp + "= " + x1.name + "+" + x2.name + "");
 
                                 EvaluationStack.Push(stackItem);
                             }
@@ -350,7 +369,7 @@ private static void addReference(string name){
                                 }
                                 StackItem x = EvaluationStack.Pop();
                                 addReference(x.name);
-                                src_code.Enqueue( "    " + x.name + " = " + x.name + ".substr(" + index + ", " + count + ");");
+                                src_code.Enqueue("    " + x.name + " = " + x.name + ".substr(" + index + ", " + count + ");");
                                 x.byteArray = SubArray<byte>(x.byteArray, index, count);
                                 EvaluationStack.Push(x);
                             }
@@ -365,7 +384,7 @@ private static void addReference(string name){
                                 }
                                 StackItem x = EvaluationStack.Pop();
                                 addReference(x.name);
-                                src_code.Enqueue( "    " + x.name + " = " + x.name + ".substr(0, " + count + ");");
+                                src_code.Enqueue("    " + x.name + " = " + x.name + ".substr(0, " + count + ");");
                                 x.byteArray = SubArray<byte>(x.byteArray, 0, count);
                                 EvaluationStack.Push(x);
                             }
@@ -401,7 +420,7 @@ private static void addReference(string name){
                                 stackItem.type = Type.integer;
                                 stackItem.integer = x.byteArray.Length;
                                 EvaluationStack.Push(stackItem);
-                                src_code.Enqueue( "    " + temp + " = " + x.name + ".Length;");
+                                src_code.Enqueue("    " + temp + " = " + x.name + ".Length;");
 
                                 EvaluationStack.Push(stackItem);
                             }
@@ -413,7 +432,7 @@ private static void addReference(string name){
                                 StackItem x = EvaluationStack.Pop();
                                 addReference(x.name);
                                 x.integer = ~x.integer;
-                                src_code.Enqueue( "    " + temp + " = ~" + x.name + ";");
+                                src_code.Enqueue("    " + temp + " = ~" + x.name + ";");
                                 EvaluationStack.Push(x);
                             }
                             break;
@@ -430,7 +449,7 @@ private static void addReference(string name){
                                 stackItem.type = Type.integer;
                                 stackItem.integer = x2.integer & x1.integer;
                                 EvaluationStack.Push(stackItem);
-                                src_code.Enqueue( "    " + temp + " = " + x2.name + "&" + x1.name + ";");
+                                src_code.Enqueue("    " + temp + " = " + x2.name + "&" + x1.name + ";");
 
                                 EvaluationStack.Push(stackItem);
                             }
@@ -448,7 +467,7 @@ private static void addReference(string name){
                                 stackItem.type = Type.integer;
                                 stackItem.integer = x2.integer | x1.integer;
                                 EvaluationStack.Push(stackItem);
-                                src_code.Enqueue( "    " + temp + " = " + x2.name + " | " + x1.name + ";");
+                                src_code.Enqueue("    " + temp + " = " + x2.name + " | " + x1.name + ";");
 
                                 EvaluationStack.Push(stackItem);
                             }
@@ -466,7 +485,7 @@ private static void addReference(string name){
                                 stackItem.type = Type.integer;
                                 stackItem.integer = x2.integer ^ x1.integer;
                                 EvaluationStack.Push(stackItem);
-                                src_code.Enqueue( "    " + temp + " = " + x2.name + " ^ " + x1.name + ";");
+                                src_code.Enqueue("    " + temp + " = " + x2.name + " ^ " + x1.name + ";");
 
                                 EvaluationStack.Push(stackItem);
                             }
@@ -477,14 +496,14 @@ private static void addReference(string name){
                                 StackItem x1 = EvaluationStack.Pop();
                                 addReference(x2.name);
                                 addReference(x1.name);
-                                temp = getVariable();
+                                temp = getBoolVariable();
 
                                 stackItem = new StackItem();
                                 stackItem.name = temp;
                                 stackItem.type = Type.boolen;
                                 stackItem.flag = x2.integer == x1.integer;
                                 EvaluationStack.Push(stackItem);
-                                src_code.Enqueue( "    " + temp + " = " + x2.name + " == " + x1.name + ";");
+                                src_code.Enqueue("    " + temp + " = " + x2.name + " == " + x1.name + ";");
 
                                 EvaluationStack.Push(stackItem);
                             }
@@ -496,7 +515,7 @@ private static void addReference(string name){
                                 StackItem x2 = EvaluationStack.Pop();
                                 addReference(x2.name);
                                 x2.integer = x2.integer + 1;
-                                src_code.Enqueue( "    " + x2.name + " = " + x2.name + "++;");
+                                src_code.Enqueue("    " + x2.name + " = " + x2.name + "++;");
                                 EvaluationStack.Push(x2);
                             }
                             break;
@@ -505,7 +524,7 @@ private static void addReference(string name){
                                 StackItem x2 = EvaluationStack.Pop();
                                 addReference(x2.name);
                                 x2.integer = x2.integer - 1;
-                                src_code.Enqueue( "    " + x2.name + " = " + x2.name + "--;");
+                                src_code.Enqueue("    " + x2.name + " = " + x2.name + "--;");
                                 EvaluationStack.Push(x2);
                             }
                             break;
@@ -520,7 +539,7 @@ private static void addReference(string name){
                                 StackItem x2 = EvaluationStack.Pop();
                                 addReference(x2.name);
                                 x2.integer = -x2.integer;
-                                src_code.Enqueue( "    " + x2.name + " = -" + x2.name + ";");
+                                src_code.Enqueue("    " + x2.name + " = -" + x2.name + ";");
                                 EvaluationStack.Push(x2);
                             }
                             break;
@@ -529,7 +548,7 @@ private static void addReference(string name){
                                 StackItem x2 = EvaluationStack.Pop();
                                 addReference(x2.name);
                                 x2.integer = Math.Abs(x2.integer);
-                                src_code.Enqueue( "    " + x2.name + " = Math.ABS(" + x2.name + ");");
+                                src_code.Enqueue("    " + x2.name + " = Math.ABS(" + x2.name + ");");
                                 EvaluationStack.Push(x2);
                             }
                             break;
@@ -538,7 +557,7 @@ private static void addReference(string name){
                                 StackItem x2 = EvaluationStack.Pop();
                                 addReference(x2.name);
                                 x2.flag = !x2.flag;
-                                src_code.Enqueue( "    " + x2.name + " = !" + x2.name + ";");
+                                src_code.Enqueue("    " + x2.name + " = !" + x2.name + ";");
                                 EvaluationStack.Push(x2);
                             }
                             break;
@@ -546,14 +565,14 @@ private static void addReference(string name){
                             {
                                 StackItem x = EvaluationStack.Pop();
                                 addReference(x.name);
-                                temp = getVariable();
+                                temp = getBoolVariable();
 
                                 stackItem = new StackItem();
                                 stackItem.name = temp;
                                 stackItem.type = Type.boolen;
                                 stackItem.flag = x.integer != 0;
 
-                                src_code.Enqueue( "    " + temp + " = " + x.name + " != 0" + ";");
+                                src_code.Enqueue("    " + temp + " = " + x.name + " != 0" + ";");
 
                                 EvaluationStack.Push(stackItem);
                             }
@@ -571,7 +590,7 @@ private static void addReference(string name){
                                 stackItem.type = Type.integer;
                                 stackItem.integer = x2.integer + x1.integer;
                                 EvaluationStack.Push(stackItem);
-                                src_code.Enqueue( "    " + temp + " = " + x2.name + " + " + x1.name + ";");
+                                src_code.Enqueue("    " + temp + " = " + x2.name + " + " + x1.name + ";");
 
                                 EvaluationStack.Push(stackItem);
                             }
@@ -589,7 +608,7 @@ private static void addReference(string name){
                                 stackItem.type = Type.integer;
                                 stackItem.integer = x1.integer - x2.integer;
                                 EvaluationStack.Push(stackItem);
-                                src_code.Enqueue( "    " + temp + " = " + x1.name + " - " + x2.name + ";");
+                                src_code.Enqueue("    " + temp + " = " + x1.name + " - " + x2.name + ";");
 
                                 EvaluationStack.Push(stackItem);
 
@@ -608,7 +627,7 @@ private static void addReference(string name){
                                 stackItem.type = Type.integer;
                                 stackItem.integer = x1.integer * x2.integer;
                                 EvaluationStack.Push(stackItem);
-                                src_code.Enqueue( "    " + temp + " = " + x1.name + " * " + x2.name + ";");
+                                src_code.Enqueue("    " + temp + " = " + x1.name + " * " + x2.name + ";");
 
                                 EvaluationStack.Push(stackItem);
                             }
@@ -626,7 +645,7 @@ private static void addReference(string name){
                                 stackItem.type = Type.integer;
                                 stackItem.integer = x1.integer / x2.integer;
                                 EvaluationStack.Push(stackItem);
-                                src_code.Enqueue( "    " + temp + "=" + x1.name + "/" + x2.name + ";");
+                                src_code.Enqueue("    " + temp + "=" + x1.name + "/" + x2.name + ";");
 
                                 EvaluationStack.Push(stackItem);
                             }
@@ -644,7 +663,7 @@ private static void addReference(string name){
                                 stackItem.type = Type.integer;
                                 stackItem.integer = x1.integer % x2.integer;
                                 EvaluationStack.Push(stackItem);
-                                src_code.Enqueue( "    " + temp + " = " + x1.name + " % " + x2.name + ";");
+                                src_code.Enqueue("    " + temp + " = " + x1.name + " % " + x2.name + ";");
 
                                 EvaluationStack.Push(stackItem);
                             }
@@ -666,7 +685,7 @@ private static void addReference(string name){
                                 stackItem.type = Type.integer;
                                 stackItem.integer = x1.integer << x2.integer;
                                 EvaluationStack.Push(stackItem);
-                                src_code.Enqueue( "    " + temp + " = " + x1.name + " << " + x2.name + ";");
+                                src_code.Enqueue("    " + temp + " = " + x1.name + " << " + x2.name + ";");
 
                                 EvaluationStack.Push(stackItem);
 
@@ -688,7 +707,7 @@ private static void addReference(string name){
                                 stackItem.type = Type.integer;
                                 stackItem.integer = x1.integer >> x2.integer;
                                 EvaluationStack.Push(stackItem);
-                                src_code.Enqueue( "    " + temp + " = " + x1.name + " >> " + x2.name + ";");
+                                src_code.Enqueue("    " + temp + " = " + x1.name + " >> " + x2.name + ";");
 
                                 EvaluationStack.Push(stackItem);
                             }
@@ -702,7 +721,7 @@ private static void addReference(string name){
                                 StackItem x1 = EvaluationStack.Pop();
                                 addReference(x2.name);
                                 addReference(x1.name);
-                                temp = getVariable();
+                                temp = getBoolVariable();
 
                                 stackItem = new StackItem();
                                 stackItem.name = temp;
@@ -710,7 +729,7 @@ private static void addReference(string name){
                                 stackItem.flag = x1.flag && x2.flag;
                                 EvaluationStack.Push(stackItem);
 
-                                src_code.Enqueue( "    " + temp + " = " + x1.name + " && " + x2.name + ";");
+                                src_code.Enqueue("    " + temp + " = " + x1.name + " && " + x2.name + ";");
                             }
                             break;
                         case OpCode.BOOLOR:
@@ -722,7 +741,7 @@ private static void addReference(string name){
                                 StackItem x1 = EvaluationStack.Pop();
                                 addReference(x2.name);
                                 addReference(x1.name);
-                                temp = getVariable();
+                                temp = getBoolVariable();
 
                                 stackItem = new StackItem();
                                 stackItem.name = temp;
@@ -730,7 +749,7 @@ private static void addReference(string name){
                                 stackItem.flag = x1.flag || x2.flag;
                                 EvaluationStack.Push(stackItem);
 
-                                src_code.Enqueue( "    " + temp + " = " + x1.name + " || " + x2.name + ";");
+                                src_code.Enqueue("    " + temp + " = " + x1.name + " || " + x2.name + ";");
                             }
                             break;
                         case OpCode.NUMEQUAL:
@@ -743,14 +762,14 @@ private static void addReference(string name){
                                 StackItem x1 = EvaluationStack.Pop();
                                 addReference(x2.name);
                                 addReference(x1.name);
-                                temp = getVariable();
+                                temp = getBoolVariable();
 
                                 stackItem = new StackItem();
                                 stackItem.name = temp;
                                 stackItem.type = Type.boolen;
                                 stackItem.flag = x1.integer == x2.integer;
                                 EvaluationStack.Push(stackItem);
-                                src_code.Enqueue( "    " + temp + " = " + x1.name + " == " + x2.name + ";");
+                                src_code.Enqueue("    " + temp + " = " + x1.name + " == " + x2.name + ";");
 
                                 EvaluationStack.Push(stackItem);
                             }
@@ -764,14 +783,14 @@ private static void addReference(string name){
                                 StackItem x1 = EvaluationStack.Pop();
                                 addReference(x2.name);
                                 addReference(x1.name);
-                                temp = getVariable();
+                                temp = getBoolVariable();
 
                                 stackItem = new StackItem();
                                 stackItem.name = temp;
                                 stackItem.type = Type.boolen;
                                 stackItem.flag = x1.integer != x2.integer;
                                 EvaluationStack.Push(stackItem);
-                                src_code.Enqueue( "    " + temp + " = " + x1.name + " != " + x2.name + ";");
+                                src_code.Enqueue("    " + temp + " = " + x1.name + " != " + x2.name + ";");
 
                                 EvaluationStack.Push(stackItem);
                             }
@@ -785,14 +804,14 @@ private static void addReference(string name){
                                 StackItem x1 = EvaluationStack.Pop();
                                 addReference(x2.name);
                                 addReference(x1.name);
-                                temp = getVariable();
+                                temp = getBoolVariable();
 
                                 stackItem = new StackItem();
                                 stackItem.name = temp;
                                 stackItem.type = Type.boolen;
                                 stackItem.flag = x1.integer < x2.integer;
                                 EvaluationStack.Push(stackItem);
-                                src_code.Enqueue( "    " + temp + " = " + x1.name + " < " + x2.name + ";");
+                                src_code.Enqueue("    " + temp + " = " + x1.name + " < " + x2.name + ";");
 
                                 EvaluationStack.Push(stackItem);
                             }
@@ -807,14 +826,14 @@ private static void addReference(string name){
                                 StackItem x1 = EvaluationStack.Pop();
                                 addReference(x2.name);
                                 addReference(x1.name);
-                                temp = getVariable();
+                                temp = getBoolVariable();
 
                                 stackItem = new StackItem();
                                 stackItem.name = temp;
                                 stackItem.type = Type.boolen;
                                 stackItem.flag = x1.integer > x2.integer;
                                 EvaluationStack.Push(stackItem);
-                                src_code.Enqueue( "    " + temp + " = " + x1.name + " > " + x2.name + ";");
+                                src_code.Enqueue("    " + temp + " = " + x1.name + " > " + x2.name + ";");
 
                                 EvaluationStack.Push(stackItem);
                             }
@@ -828,14 +847,14 @@ private static void addReference(string name){
                                 StackItem x1 = EvaluationStack.Pop();
                                 addReference(x2.name);
                                 addReference(x1.name);
-                                temp = getVariable();
+                                temp = getBoolVariable();
 
                                 stackItem = new StackItem();
                                 stackItem.name = temp;
                                 stackItem.type = Type.boolen;
                                 stackItem.flag = x1.integer <= x2.integer;
                                 EvaluationStack.Push(stackItem);
-                                src_code.Enqueue( "    " + temp + " = " + x1.name + " <= " + x2.name + ";");
+                                src_code.Enqueue("    " + temp + " = " + x1.name + " <= " + x2.name + ";");
 
                                 EvaluationStack.Push(stackItem);
                             }
@@ -849,14 +868,14 @@ private static void addReference(string name){
                                 StackItem x1 = EvaluationStack.Pop();
                                 addReference(x2.name);
                                 addReference(x1.name);
-                                temp = getVariable();
+                                temp = getBoolVariable();
 
                                 stackItem = new StackItem();
                                 stackItem.name = temp;
                                 stackItem.type = Type.boolen;
                                 stackItem.flag = x1.integer >= x2.integer;
                                 EvaluationStack.Push(stackItem);
-                                src_code.Enqueue( "    " + temp + " = " + x1.name + " >= " + x2.name + ";");
+                                src_code.Enqueue("    " + temp + " = " + x1.name + " >= " + x2.name + ";");
 
                                 EvaluationStack.Push(stackItem);
                             }
@@ -877,7 +896,7 @@ private static void addReference(string name){
                                 stackItem.type = Type.integer;
                                 stackItem.integer = Math.Min(x1.integer, x2.integer);
                                 EvaluationStack.Push(stackItem);
-                                src_code.Enqueue( "    " + temp + "= Math.Min(" + x1.name + "," + x2.name + ");");
+                                src_code.Enqueue("    " + temp + "= Math.Min(" + x1.name + "," + x2.name + ");");
 
                                 EvaluationStack.Push(stackItem);
                             }
@@ -899,7 +918,7 @@ private static void addReference(string name){
                                 stackItem.type = Type.integer;
                                 stackItem.integer = Math.Max(x1.integer, x2.integer);
                                 EvaluationStack.Push(stackItem);
-                                src_code.Enqueue( "    " + temp + "= Math.Max(" + x1.name + "," + x2.name + ");");
+                                src_code.Enqueue("    " + temp + "= Math.Max(" + x1.name + "," + x2.name + ");");
 
                                 EvaluationStack.Push(stackItem);
                             }
@@ -916,7 +935,7 @@ private static void addReference(string name){
                                 addReference(x2.name);
                                 addReference(x1.name);
                                 addReference(x.name);
-                                temp = getVariable();
+                                temp = getBoolVariable();
 
                                 stackItem = new StackItem();
                                 stackItem.name = temp;
@@ -924,7 +943,7 @@ private static void addReference(string name){
                                 stackItem.flag = (x1.integer <= x.integer && x.integer < x2.integer);
                                 EvaluationStack.Push(stackItem);
 
-                                src_code.Enqueue( "    " + temp + " = (" + x1.name + " <= " + x.name + ") && (" + x.name + " < " + x2.name + ");");
+                                src_code.Enqueue("    " + temp + " = (" + x1.name + " <= " + x.name + ") && (" + x.name + " < " + x2.name + ");");
 
                                 EvaluationStack.Push(stackItem);
                             }
@@ -937,7 +956,7 @@ private static void addReference(string name){
                                 StackItem x = EvaluationStack.Pop();
                                 addReference(x.name);
                                 x.byteArray = sha.ComputeHash(x.byteArray);
-                                src_code.Enqueue( "    " + x.name + " = Crypto.SHA256(" + x.name + ");");
+                                src_code.Enqueue("    " + x.name + " = Crypto.SHA256(" + x.name + ");");
                                 EvaluationStack.Push(x);
                             }
 
@@ -948,7 +967,7 @@ private static void addReference(string name){
                                 StackItem x = EvaluationStack.Pop();
                                 addReference(x.name);
                                 x.byteArray = sha.ComputeHash(x.byteArray);
-                                src_code.Enqueue( "    " + x.name + " = Crypto.SHA256(" + x.name + ");");
+                                src_code.Enqueue("    " + x.name + " = Crypto.SHA256(" + x.name + ");");
                                 EvaluationStack.Push(x);
                             }
                             break;
@@ -959,7 +978,7 @@ private static void addReference(string name){
                                 StackItem x = EvaluationStack.Pop();
                                 addReference(x.name);
                                 x.byteArray = Crypto.Hash160(x.byteArray);
-                                src_code.Enqueue( "    " + x.name + " = Crypto.Hash160(" + x.name + ");");
+                                src_code.Enqueue("    " + x.name + " = Crypto.Hash160(" + x.name + ");");
                                 EvaluationStack.Push(x);
                             }
                             break;
@@ -970,7 +989,7 @@ private static void addReference(string name){
                                 StackItem x = EvaluationStack.Pop();
                                 addReference(x.name);
                                 x.byteArray = Crypto.Hash256(x.byteArray);
-                                src_code.Enqueue( "    " + x.name + " = Crypto.Hash256(" + x.name + ");");
+                                src_code.Enqueue("    " + x.name + " = Crypto.Hash256(" + x.name + ");");
                                 EvaluationStack.Push(x);
                             }
                             break;
@@ -990,7 +1009,7 @@ private static void addReference(string name){
                                 stackItem.flag = false;
                                 EvaluationStack.Push(stackItem);
 
-                                src_code.Enqueue(temp +" = Crypto.VerifySignature(ScriptContainer.GetMessage(), "+signature.name+", "+pubkey.name+")");
+                                src_code.Enqueue(temp + " = Crypto.VerifySignature(ScriptContainer.GetMessage(), " + signature.name + ", " + pubkey.name + ")");
 
                             }
                             break;
@@ -1027,7 +1046,7 @@ private static void addReference(string name){
                                 stackItem.integer = item.byteArray.Length;
                                 EvaluationStack.Push(stackItem);
 
-                                src_code.Enqueue( "    " + temp + " = " + item.name + ".Length;");
+                                src_code.Enqueue("    " + temp + " = " + item.name + ".Length;");
                                 EvaluationStack.Push(stackItem);
                             }
                             break;
@@ -1045,13 +1064,13 @@ private static void addReference(string name){
                                 stackItem.arr = items;
                                 EvaluationStack.Push(stackItem);
 
-                                src_code.Enqueue( "     List<?> " + temp + "= new List<?>(" + size.name + ");");
+                                src_code.Enqueue("     List<?> " + temp + "= new List<?>(" + size.name + ");");
                                 StackItem it;
                                 for (int i = 0; i < size.integer; i++)
                                 {
                                     it = EvaluationStack.Pop();
                                     items.Add(it);
-                                    src_code.Enqueue( "    " + temp + ".Add(" + it.name + ");");
+                                    src_code.Enqueue("    " + temp + ".Add(" + it.name + ");");
                                 }
                                 EvaluationStack.Push(stackItem);
                             }
@@ -1077,7 +1096,7 @@ private static void addReference(string name){
                                 addReference(x.name);
 
                                 StackItem v = x.arr[key.integer];
-                                src_code.Enqueue( "    " + v.name + " = " + x.name + "[" + key.name + "];");
+                                src_code.Enqueue("    " + v.name + " = " + x.name + "[" + key.name + "];");
 
                                 EvaluationStack.Push(v);
                             }
@@ -1098,7 +1117,7 @@ private static void addReference(string name){
                                     int index = (int)key.integer;
 
                                     x.arr[index] = value;
-                                    src_code.Enqueue( "    " + x.name + "[" + key.name + "] = " + value.name + ";");
+                                    src_code.Enqueue("    " + x.name + "[" + key.name + "] = " + value.name + ";");
                                 }
                                 else
                                 {
@@ -1118,11 +1137,11 @@ private static void addReference(string name){
                                 StackItem stackItem1 = new StackItem();
                                 stackItem1.name = temp1;
                                 stackItem1.type = Type.array;
-                                src_code.Enqueue( "    Array " + temp1 + " = new Array<?>(" + count.name + ");");
+                                src_code.Enqueue("    Array " + temp1 + " = new Array<?>(" + count.name + ");");
 
                                 for (var i = 0; i < count.integer; i++)
                                 {
-                                    temp = getVariable();
+                                    temp = getBoolVariable();
 
                                     stackItem = new StackItem();
                                     stackItem.name = temp;
@@ -1157,7 +1176,7 @@ private static void addReference(string name){
 
                                 arrItem.arr.Add(newItem);
 
-                                src_code.Enqueue( "    " + arrItem.name + ".Add(" + newItem.name + ");");
+                                src_code.Enqueue("    " + arrItem.name + ".Add(" + newItem.name + ");");
 
                                 EvaluationStack.Push(arrItem);
                             }
@@ -1167,9 +1186,9 @@ private static void addReference(string name){
                                 StackItem arrItem = EvaluationStack.Pop();
 
                                 addReference(arrItem.name);
-                                
+
                                 arrItem.arr.Reverse();
-                                src_code.Enqueue( "    " + arrItem.name + ".Reverse();");
+                                src_code.Enqueue("    " + arrItem.name + ".Reverse();");
                                 EvaluationStack.Push(arrItem);
                             }
                             break;
@@ -1209,7 +1228,7 @@ private static void addReference(string name){
                                 addReference(key.name);
                                 addReference(x.name);
 
-                                temp = getVariable();
+                                temp = getBoolVariable();
 
                                 stackItem = new StackItem();
                                 stackItem.name = temp;
@@ -1226,7 +1245,7 @@ private static void addReference(string name){
                                     stackItem.flag = x.arr.Contains(key);
                                 }
 
-                                src_code.Enqueue( "    " + temp + x.name + ".Contains(" + key.name + ");");
+                                src_code.Enqueue("    " + temp + x.name + ".Contains(" + key.name + ");");
                                 EvaluationStack.Push(stackItem);
 
                             }
@@ -1280,19 +1299,20 @@ private static void addReference(string name){
                             return;
                     }
             }
-            src_code.Enqueue( "}");
+            src_code.Enqueue("}");
 
             // REMOVE THOSE VARIABLES THAT ONLY USED ONCE
-            foreach( string number in src_code )
+            foreach (string number in src_code)
             {
                 bool print = true;
-                foreach(var item in variables)
+                foreach (var item in variables)
                 {
-                    if(item.Value ==1 && number.Contains(item.Key)){
+                    if (item.Value == 1 && number.Contains(item.Key))
+                    {
                         print = false;
                     }
                 }
-                if(print)
+                if (print)
                     Console.WriteLine(number);
             }
             //Console.WriteLine(src);
