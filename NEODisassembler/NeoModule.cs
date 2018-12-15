@@ -79,6 +79,8 @@ namespace NEODisassembler
     public class NeoCode
     {
         public OpCode code = OpCode.NOP;
+        public bool beginOfLoop = false;
+        public bool endOfLoop = false;
         public int addr;
         public byte[] bytes;
         public bool error;//bool
