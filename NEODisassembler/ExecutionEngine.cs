@@ -19,14 +19,14 @@ namespace NEODisassembler
         private static string getVariable()
         {
             variable_count++;
-            string vari = "v_" + variable_count;
+            string vari = "v_int_" + variable_count;
             variables[vari] = 1;
             return vari;
         }
 
         private static string getBoolVariable()
         {
-            variable_count++;
+            variable_count_bool++;
             string vari = "v_bool_" + variable_count_bool;
             variables[vari] = 1;
             return vari;
@@ -34,7 +34,7 @@ namespace NEODisassembler
 
         private static string getArrayVariable()
         {
-            variable_count++;
+            variable_count_array++;
             string vari = "v_array_" + variable_count_array;
             variables[vari] = 1;
             return vari;
@@ -132,6 +132,7 @@ namespace NEODisassembler
                         case OpCode.JMPIF:
                         case OpCode.JMPIFNOT:
                             {
+                              //Console.WriteLine("jhhhhhh"+opcode.AsAddr());
                                 //src+="    "+
                                 //int offset = context.OpReader.ReadInt16();
                                 //offset = context.InstructionPointer + offset - 3;
@@ -1056,7 +1057,7 @@ namespace NEODisassembler
                                 addReference(size.name);
                                 List<StackItem> items = new List<StackItem>(size.integer);
 
-                                temp = getVariable();
+                                temp = getArrayVariable();
 
                                 stackItem = new StackItem();
                                 stackItem.name = temp;
@@ -1133,7 +1134,7 @@ namespace NEODisassembler
                                 addReference(count.name);
 
                                 List<StackItem> items = new List<StackItem>(count.integer);
-                                var temp1 = getVariable();
+                                var temp1 = getArrayVariable();
                                 StackItem stackItem1 = new StackItem();
                                 stackItem1.name = temp1;
                                 stackItem1.type = Type.array;

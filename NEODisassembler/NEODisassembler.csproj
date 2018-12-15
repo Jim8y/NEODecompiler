@@ -11,7 +11,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Folder Include="Types\" />
+    <Compile Remove="Types\**" />
+    <EmbeddedResource Remove="Types\**" />
+    <None Remove="Types\**" />
   </ItemGroup>
 
 </Project>
