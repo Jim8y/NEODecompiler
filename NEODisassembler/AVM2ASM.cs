@@ -6,7 +6,7 @@ namespace NEODisassembler
 {
    class Avm2Asm
     {
-        public static NeoCode[] Trans(byte[] script)
+        public static Dictionary<int, NeoCode> Trans(byte[] script)
         {
             NeoModule neoModule = new NeoModule();
             NeoMethod method = new NeoMethod();
@@ -16,7 +16,7 @@ namespace NEODisassembler
             neoModule.mapMethods[method.name] = method;
 
             var breader = new ByteReader(script);
-            List<NeoCode> arr = new List<NeoCode>();
+            Dictionary<int, NeoCode> arr = new Dictionary<int, NeoCode>();
             while (breader.End() == false)
             {
                 var o = new NeoCode();
@@ -82,8 +82,17 @@ namespace NEODisassembler
                             case OpCode.JMP:
                             case OpCode.JMPIF:
                             case OpCode.JMPIFNOT:
+                                // Set loop symbol
                                 o.paramType = ParamType.Addr;
                                 o.paramData = breader.ReadBytes(2);
+                                if (o.AsAddr() < 0)
+                                {
+                                    var target = o.addr + o.AsAddr() - 3;
+                                    NeoCode targetCode = arr[target];
+                                    targetCode.beginOfLoop = true;
+                                    o.endOfLoop = true;
+                                }
+                                
                                 break;
          
                             case OpCode.CALL:
@@ -214,14 +223,14 @@ namespace NEODisassembler
                     o.error = true;
                     Console.WriteLine("Open File Error:" + err.ToString());
                 }
-                arr.Add(o);
+                arr.Add(o.addr,o);
                 // Store the neo code into the method
                 method.neoCodes.Add(o);
                 if (o.error)
                     break;
             }
 
-            return arr.ToArray();
+            return arr;
         }
     }
 }

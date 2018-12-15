@@ -18,10 +18,16 @@ namespace NEODisassembler
 
                 //   Console.WriteLine(Helper.Bytes2HexString(AVM));
                 var ops = Avm2Asm.Trans(AVM);
-                for (var i = 0; i < ops.Length; i++)
+                foreach (var item in ops)
                 {
 
-                    var op = ops[i];
+                //    Console.WriteLine(item.Key + item.Value);
+
+                //}
+                //for (var i = 0; i < ops.Count; i++)
+                //{
+
+                    var op = item.Value;
                     Console.WriteLine(op.toString());
                     try
                     {
@@ -30,7 +36,9 @@ namespace NEODisassembler
                             Console.WriteLine("[" + Helper.Bytes2HexString(Helper.HexString2Bytes(op.toString().Substring(13, 53))) + "]");
                         }
                     }
-                    catch (Exception e) {}
+                    catch (Exception e) {
+                        //Console.WriteLine(e.ToString());
+                    }
                 }
             }
             catch (Exception err)
