@@ -8,7 +8,7 @@ namespace NEODisassembler
 
     public static class ExecutionEngine
     {
-        private static int variable_count = -1, variable_count_bool = -1, variable_count_array=-1;
+        private static int variable_count = -1, variable_count_bool = -1, variable_count_array = -1;
         public static Stack<StackItem> InvocationStack { get; } = new Stack<StackItem>();
         public static Stack<StackItem> EvaluationStack = new Stack<StackItem>();
         public static Stack<StackItem> AltStack { get; } = new Stack<StackItem>();
@@ -41,10 +41,34 @@ namespace NEODisassembler
             return vari;
         }
 
+        private static string appendName(StackItem stack)
+        {
+            switch (stack.type)
+            {
+                case Type.array:
+                    return getArrayVariable();
+                    break;
+                case Type.map:
 
+                    break;
+                case Type.integer:
+                    return getVariable();
+                    break;
+                case Type.boolen:
+                    return getBoolVariable();
+                    break;
+                case Type.struc:
+                    break;
+                case Type.bytearray:
+                    return getArrayVariable();
+                    break;
+            }
+            return "ERROR";
+
+        }
         private static void addReference(StackItem stackItem)
         {
-            if(!stackItem.directValue)
+            if (!stackItem.directValue)
                 variables[stackItem.getName()] = variables[stackItem.getName()] + 1;
         }
         private static T[] SubArray<T>(this T[] data, int index, int length)
@@ -56,10 +80,10 @@ namespace NEODisassembler
         public static void ExecuteOp(NeoMethod method)
         {
             // TODO: parameter of function
-            if(method.name == "Main")
-                src_code.Enqueue("static void Main(string[] args) {");
+            if (method.name == "Main")
+                src_code.Enqueue("00 static void Main(string[] args) {");
             else
-            src_code.Enqueue("function " + method.name + "() {");
+                src_code.Enqueue("function " + method.name + "() {");
 
             NeoCode param_code = method.neoCodes[0];
 
@@ -71,7 +95,7 @@ namespace NEODisassembler
                 if (opcode.beginOfLoop)
                 {
                     // There might be multi-layer loop
-                    processingLoop ++;
+                    processingLoop++;
                 }
                 if (opcode.code >= OpCode.PUSHBYTES1 && opcode.code <= OpCode.PUSHBYTES75)
                 {
@@ -81,21 +105,22 @@ namespace NEODisassembler
                     stackItem.byteArray = opcode.paramData;
                     EvaluationStack.Push(stackItem);
 
-                    src_code.Enqueue(opcode.addr+"    byte[]" + temp + "= new byte[](\"" + opcode.AsString() + "\");" + "");
+                    src_code.Enqueue(opcode.addr.ToString("x02") + "    byte[] " + temp + " = new byte[](\"" + opcode.AsString() + "\");" + "");
                 }
                 else
                     switch (opcode.code)
                     {
                         // Push value
                         case OpCode.PUSH0:
-                            temp = getVariable();
+                            //  temp = getVariable();
 
                             stackItem = new StackItem();
-                            stackItem.name = temp;
+                            //stackItem.name = temp;
+                            stackItem.directValue = true;
                             stackItem.type = Type.integer;
                             stackItem.integer = 0;
                             EvaluationStack.Push(stackItem);
-                            src_code.Enqueue(opcode.addr+"    int " + temp + " = 0;");
+                            // src_code.Enqueue(opcode.addr.ToString("x02")+"    int " + temp + " = 0;");
                             break;
                         case OpCode.PUSHDATA1:
                         case OpCode.PUSHDATA2:
@@ -106,7 +131,7 @@ namespace NEODisassembler
                             stackItem.type = Type.bytearray;
                             stackItem.byteArray = opcode.paramData;
                             EvaluationStack.Push(stackItem);
-                            src_code.Enqueue(opcode.addr+"    byte[] " + temp + "= new byte[](\"" + opcode.AsHexString() + "\");" + "");
+                            src_code.Enqueue(opcode.addr.ToString("x02") + "    byte[] " + temp + " = new byte[](\"" + opcode.AsHexString() + "\");" + "");
                             break;
                         case OpCode.PUSHM1:
                         case OpCode.PUSH1:
@@ -125,14 +150,15 @@ namespace NEODisassembler
                         case OpCode.PUSH14:
                         case OpCode.PUSH15:
                         case OpCode.PUSH16:
-                            temp = getVariable();
+                            //   temp = getVariable();
 
                             stackItem = new StackItem();
-                            stackItem.name = temp;
+                            //stackItem.name = temp;
+                            stackItem.directValue = true;
                             stackItem.type = Type.integer;
                             stackItem.integer = (int)opcode.code - (int)OpCode.PUSH1 + 1;
                             EvaluationStack.Push(stackItem);
-                            src_code.Enqueue(opcode.addr+"    int " + temp + " = " + ((int)opcode.code - (int)OpCode.PUSH1 + 1) + ";");
+                            //src_code.Enqueue(opcode.addr.ToString("x02")+"    int " + temp + " = " + ((int)opcode.code - (int)OpCode.PUSH1 + 1) + ";");
                             break;
 
                         // Control
@@ -143,7 +169,7 @@ namespace NEODisassembler
                         case OpCode.JMPIFNOT:
                             {
                                 processingLoop--;
-                                src_code.Enqueue(opcode.addr+"Jump " + (opcode.addr + opcode.AsAddr() - 3));
+                                src_code.Enqueue(opcode.addr.ToString("x02") + " Jump " + (opcode.addr + opcode.AsAddr() - 3).ToString("x02"));
                                 //Console.WriteLine("jhhhhhh"+opcode.AsAddr());
                                 //src+="    "+
                                 //int offset = context.OpReader.ReadInt16();
@@ -175,7 +201,7 @@ namespace NEODisassembler
                         case OpCode.APPCALL:
                         case OpCode.TAILCALL:
                             {
-                                src_code.Enqueue(opcode.addr+"    APPCALL(\"" + opcode.paramData.ToString() + "\");");
+                                src_code.Enqueue(opcode.addr.ToString("x02") + "    APPCALL(\"" + opcode.paramData.ToString() + "\");");
                             }
                             break;
                         case OpCode.SYSCALL:
@@ -192,7 +218,7 @@ namespace NEODisassembler
                                     stackItem.type = Type.integer;
                                     stackItem.integer = EvaluationStack.Count;
                                     EvaluationStack.Push(stackItem);
-                                    src_code.Enqueue(opcode.addr+"    byte[] " + temp + " = " + opcode.AsString() + "(");
+                                    src_code.Enqueue(opcode.addr.ToString("x02") + "    byte[] " + temp + " = " + opcode.AsString() + "(");
                                     EvaluationStack.Push(stackItem);
                                 }
 
@@ -200,9 +226,9 @@ namespace NEODisassembler
                                 {
                                     StackItem x = EvaluationStack.Pop();
                                     addReference(x);
-                                    src_code.Enqueue(opcode.addr+"" + x.getName() + ", ");
+                                    src_code.Enqueue(opcode.addr.ToString("x02") + "" + x.getName() + ", ");
                                 }
-                                src_code.Enqueue(opcode.addr+");");
+                                src_code.Enqueue(opcode.addr.ToString("x02") + ");");
                             }
                             break;
 
@@ -253,14 +279,14 @@ namespace NEODisassembler
                             }
                             break;
                         case OpCode.DEPTH:
-                            temp = getVariable();
+                            //temp = getVariable();
 
                             stackItem = new StackItem();
-                            stackItem.name = temp;
+                            stackItem.directValue = true;
                             stackItem.type = Type.integer;
                             stackItem.integer = EvaluationStack.Count;
                             EvaluationStack.Push(stackItem);
-                            src_code.Enqueue(opcode.addr+"    int " + temp + " = " + EvaluationStack.Count + ";");
+                            // src_code.Enqueue(opcode.addr.ToString("x02")+"    int " + temp + " = " + EvaluationStack.Count + ";");
 
                             break;
                         case OpCode.DROP:
@@ -347,23 +373,23 @@ namespace NEODisassembler
                                 StackItem x2 = EvaluationStack.Pop();
                                 StackItem x1 = EvaluationStack.Pop();
 
-                                 addReference(x2);
-                                 addReference(x1);
+                                addReference(x2);
+                                addReference(x1);
                                 int len = x2.byteArray.Length + x1.byteArray.Length;
                                 byte[] x3 = new byte[len];
                                 x1.byteArray.CopyTo(x3, 0);
                                 x2.byteArray.CopyTo(x3, x1.byteArray.Length);
+                                
+                                //temp = getVariable();
+                                //stackItem = new StackItem();
+                                //stackItem.name = temp;
+                                //stackItem.type = Type.bytearray;
+                                x1.byteArray = x3;
+                                //EvaluationStack.Push(stackItem);
 
-                                temp = getVariable();
-                                stackItem = new StackItem();
-                                stackItem.name = temp;
-                                stackItem.type = Type.bytearray;
-                                stackItem.byteArray = x3;
-                                EvaluationStack.Push(stackItem);
+                                src_code.Enqueue(opcode.addr.ToString("x02") + "    " + x1.getName() + " = " + x1.getName() + " + " + x2.getName() +" ("+ Encoding.UTF8.GetString(x3) +")");
 
-                                src_code.Enqueue(opcode.addr+"    byte[] " + temp + "= " + x1.getName() + "+" + x2.getName() + "");
-
-                                EvaluationStack.Push(stackItem);
+                                EvaluationStack.Push(x1);
                             }
                             break;
                         case OpCode.SUBSTR:
@@ -382,7 +408,7 @@ namespace NEODisassembler
                                 }
                                 StackItem x = EvaluationStack.Pop();
                                 addReference(x);
-                                src_code.Enqueue(opcode.addr+"    " + x.getName() + " = " + x.getName() + ".substr(" + index + ", " + count + ");");
+                                src_code.Enqueue(opcode.addr.ToString("x02") + "    " + x.getName() + " = " + x.getName() + ".substr(" + index + ", " + count + ");");
                                 x.byteArray = SubArray<byte>(x.byteArray, index, count);
                                 EvaluationStack.Push(x);
                             }
@@ -397,7 +423,7 @@ namespace NEODisassembler
                                 }
                                 StackItem x = EvaluationStack.Pop();
                                 addReference(x);
-                                src_code.Enqueue(opcode.addr+"    " + x.getName() + " = " + x.getName() + ".substr(0, " + count + ");");
+                                src_code.Enqueue(opcode.addr.ToString("x02") + "    " + x.getName() + " = " + x.getName() + ".substr(0, " + count + ");");
                                 x.byteArray = SubArray<byte>(x.byteArray, 0, count);
                                 EvaluationStack.Push(x);
                             }
@@ -427,13 +453,13 @@ namespace NEODisassembler
                             {
                                 StackItem x = EvaluationStack.Pop();
                                 temp = getVariable();
-                                 addReference(x);
+                                addReference(x);
                                 stackItem = new StackItem();
                                 stackItem.name = temp;
                                 stackItem.type = Type.integer;
                                 stackItem.integer = x.byteArray.Length;
                                 EvaluationStack.Push(stackItem);
-                                src_code.Enqueue(opcode.addr+"    " + temp + " = " + x.getName() + ".Length;");
+                                src_code.Enqueue(opcode.addr.ToString("x02") + "    " + temp + " = " + x.getName() + ".Length;");
 
                                 EvaluationStack.Push(stackItem);
                             }
@@ -443,9 +469,9 @@ namespace NEODisassembler
                         case OpCode.INVERT:
                             {
                                 StackItem x = EvaluationStack.Pop();
-                                 addReference(x);
+                                addReference(x);
                                 x.integer = ~x.integer;
-                                src_code.Enqueue(opcode.addr+"    " + temp + " = ~" + x.getName() + ";");
+                                src_code.Enqueue(opcode.addr.ToString("x02") + "    " + x.getName() + " = ~" + x.getName() + ";");
                                 EvaluationStack.Push(x);
                             }
                             break;
@@ -453,8 +479,8 @@ namespace NEODisassembler
                             {
                                 StackItem x2 = EvaluationStack.Pop();
                                 StackItem x1 = EvaluationStack.Pop();
-                                 addReference(x2);
-                                 addReference(x1);
+                                addReference(x2);
+                                addReference(x1);
                                 temp = getVariable();
 
                                 stackItem = new StackItem();
@@ -462,7 +488,7 @@ namespace NEODisassembler
                                 stackItem.type = Type.integer;
                                 stackItem.integer = x2.integer & x1.integer;
                                 EvaluationStack.Push(stackItem);
-                                src_code.Enqueue(opcode.addr+"    " + temp + " = " + x2.getName() + "&" + x1.getName() + ";");
+                                src_code.Enqueue(opcode.addr.ToString("x02") + "    " + temp + " = " + x2.getName() + "&" + x1.getName() + ";");
 
                                 EvaluationStack.Push(stackItem);
                             }
@@ -471,8 +497,8 @@ namespace NEODisassembler
                             {
                                 StackItem x2 = EvaluationStack.Pop();
                                 StackItem x1 = EvaluationStack.Pop();
-                                 addReference(x2);
-                                 addReference(x1);
+                                addReference(x2);
+                                addReference(x1);
                                 temp = getVariable();
 
                                 stackItem = new StackItem();
@@ -480,7 +506,7 @@ namespace NEODisassembler
                                 stackItem.type = Type.integer;
                                 stackItem.integer = x2.integer | x1.integer;
                                 EvaluationStack.Push(stackItem);
-                                src_code.Enqueue(opcode.addr+"    " + temp + " = " + x2.getName() + " | " + x1.getName() + ";");
+                                src_code.Enqueue(opcode.addr.ToString("x02") + "    " + temp + " = " + x2.getName() + " | " + x1.getName() + ";");
 
                                 EvaluationStack.Push(stackItem);
                             }
@@ -489,8 +515,8 @@ namespace NEODisassembler
                             {
                                 StackItem x2 = EvaluationStack.Pop();
                                 StackItem x1 = EvaluationStack.Pop();
-                                 addReference(x2);
-                                 addReference(x1);
+                                addReference(x2);
+                                addReference(x1);
                                 temp = getVariable();
 
                                 stackItem = new StackItem();
@@ -498,7 +524,7 @@ namespace NEODisassembler
                                 stackItem.type = Type.integer;
                                 stackItem.integer = x2.integer ^ x1.integer;
                                 EvaluationStack.Push(stackItem);
-                                src_code.Enqueue(opcode.addr+"    " + temp + " = " + x2.getName() + " ^ " + x1.getName() + ";");
+                                src_code.Enqueue(opcode.addr.ToString("x02") + "    " + temp + " = " + x2.getName() + " ^ " + x1.getName() + ";");
 
                                 EvaluationStack.Push(stackItem);
                             }
@@ -507,8 +533,8 @@ namespace NEODisassembler
                             {
                                 StackItem x2 = EvaluationStack.Pop();
                                 StackItem x1 = EvaluationStack.Pop();
-                                 addReference(x2);
-                                 addReference(x1);
+                                addReference(x2);
+                                addReference(x1);
                                 temp = getBoolVariable();
 
                                 stackItem = new StackItem();
@@ -516,7 +542,7 @@ namespace NEODisassembler
                                 stackItem.type = Type.boolen;
                                 stackItem.flag = x2.integer == x1.integer;
                                 EvaluationStack.Push(stackItem);
-                                src_code.Enqueue(opcode.addr+"    " + temp + " = " + x2.getName() + " == " + x1.getName() + ";");
+                                src_code.Enqueue(opcode.addr.ToString("x02") + "    " + temp + " = " + x2.getName() + " == " + x1.getName() + ";");
 
                                 EvaluationStack.Push(stackItem);
                             }
@@ -526,18 +552,18 @@ namespace NEODisassembler
                         case OpCode.INC:
                             {
                                 StackItem x2 = EvaluationStack.Pop();
-                                 addReference(x2);
+                                addReference(x2);
                                 x2.integer = x2.integer + 1;
-                                src_code.Enqueue(opcode.addr+"    " + x2.getName() + " = " + x2.getName() + "++;");
+                                src_code.Enqueue(opcode.addr.ToString("x02") + "    " + x2.getName() + " = " + x2.getName() + "++;");
                                 EvaluationStack.Push(x2);
                             }
                             break;
                         case OpCode.DEC:
                             {
                                 StackItem x2 = EvaluationStack.Pop();
-                                 addReference(x2);
+                                addReference(x2);
                                 x2.integer = x2.integer - 1;
-                                src_code.Enqueue(opcode.addr+"    " + x2.getName() + " = " + x2.getName() + "--;");
+                                src_code.Enqueue(opcode.addr.ToString("x02") + "    " + x2.getName() + " = " + x2.getName() + "--;");
                                 EvaluationStack.Push(x2);
                             }
                             break;
@@ -550,34 +576,34 @@ namespace NEODisassembler
                         case OpCode.NEGATE:
                             {
                                 StackItem x2 = EvaluationStack.Pop();
-                                 addReference(x2);
+                                addReference(x2);
                                 x2.integer = -x2.integer;
-                                src_code.Enqueue(opcode.addr+"    " + x2.getName() + " = -" + x2.getName() + ";");
+                                src_code.Enqueue(opcode.addr.ToString("x02") + "    " + x2.getName() + " = -" + x2.getName() + ";");
                                 EvaluationStack.Push(x2);
                             }
                             break;
                         case OpCode.ABS:
                             {
                                 StackItem x2 = EvaluationStack.Pop();
-                                 addReference(x2);
+                                addReference(x2);
                                 x2.integer = Math.Abs(x2.integer);
-                                src_code.Enqueue(opcode.addr+"    " + x2.getName() + " = Math.ABS(" + x2.getName() + ");");
+                                src_code.Enqueue(opcode.addr.ToString("x02") + "    " + x2.getName() + " = Math.ABS(" + x2.getName() + ");");
                                 EvaluationStack.Push(x2);
                             }
                             break;
                         case OpCode.NOT:
                             {
                                 StackItem x2 = EvaluationStack.Pop();
-                                 addReference(x2);
+                                addReference(x2);
                                 x2.flag = !x2.flag;
-                                src_code.Enqueue(opcode.addr+"    " + x2.getName() + " = !" + x2.getName() + ";");
+                                src_code.Enqueue(opcode.addr.ToString("x02") + "    " + x2.getName() + " = !" + x2.getName() + ";");
                                 EvaluationStack.Push(x2);
                             }
                             break;
                         case OpCode.NZ:
                             {
                                 StackItem x = EvaluationStack.Pop();
-                                 addReference(x);
+                                addReference(x);
                                 temp = getBoolVariable();
 
                                 stackItem = new StackItem();
@@ -585,7 +611,7 @@ namespace NEODisassembler
                                 stackItem.type = Type.boolen;
                                 stackItem.flag = x.integer != 0;
 
-                                src_code.Enqueue(opcode.addr+"    " + temp + " = " + x.getName() + " != 0" + ";");
+                                src_code.Enqueue(opcode.addr.ToString("x02") + "    bool " + temp + " = " + x.getName() + " != 0" + ";");
 
                                 EvaluationStack.Push(stackItem);
                             }
@@ -594,26 +620,29 @@ namespace NEODisassembler
                             {
                                 StackItem x2 = EvaluationStack.Pop();
                                 StackItem x1 = EvaluationStack.Pop();
-                                 addReference(x2);
-                                 addReference(x1);
-                                temp = getVariable();
+                                addReference(x2);
+                                addReference(x1);
 
-                                stackItem = new StackItem();
-                                stackItem.name = temp;
-                                stackItem.type = Type.integer;
-                                stackItem.integer = x2.integer + x1.integer;
-                                EvaluationStack.Push(stackItem);
-                                src_code.Enqueue(opcode.addr+"    " + temp + " = " + x2.getName() + " + " + x1.getName() + ";");
+                                // temp = getVariable();
 
-                                EvaluationStack.Push(stackItem);
+                                // stackItem = new StackItem();
+                              //  x1.name = temp;
+                               // x1.directValue = false;
+                                //x1.type = Type.integer;
+                                x1.integer = x2.integer + x1.integer;
+
+                                //EvaluationStack.Push(x1);
+                                src_code.Enqueue(opcode.addr.ToString("x02") + "    " + x1.name + " = " + x2.getName() + " + " + x1.getName() + ";");
+
+                                EvaluationStack.Push(x1);
                             }
                             break;
                         case OpCode.SUB:
                             {
                                 StackItem x2 = EvaluationStack.Pop();
                                 StackItem x1 = EvaluationStack.Pop();
-                                 addReference(x2);
-                                 addReference(x1);
+                                addReference(x2);
+                                addReference(x1);
                                 temp = getVariable();
 
                                 stackItem = new StackItem();
@@ -621,7 +650,7 @@ namespace NEODisassembler
                                 stackItem.type = Type.integer;
                                 stackItem.integer = x1.integer - x2.integer;
                                 EvaluationStack.Push(stackItem);
-                                src_code.Enqueue(opcode.addr+"    " + temp + " = " + x1.getName() + " - " + x2.getName() + ";");
+                                src_code.Enqueue(opcode.addr.ToString("x02") + "    " + temp + " = " + x1.getName() + " - " + x2.getName() + ";");
 
                                 EvaluationStack.Push(stackItem);
 
@@ -631,8 +660,8 @@ namespace NEODisassembler
                             {
                                 StackItem x2 = EvaluationStack.Pop();
                                 StackItem x1 = EvaluationStack.Pop();
-                                 addReference(x2);
-                                 addReference(x1);
+                                addReference(x2);
+                                addReference(x1);
                                 temp = getVariable();
 
                                 stackItem = new StackItem();
@@ -640,7 +669,7 @@ namespace NEODisassembler
                                 stackItem.type = Type.integer;
                                 stackItem.integer = x1.integer * x2.integer;
                                 EvaluationStack.Push(stackItem);
-                                src_code.Enqueue(opcode.addr+"    " + temp + " = " + x1.getName() + " * " + x2.getName() + ";");
+                                src_code.Enqueue(opcode.addr.ToString("x02") + "    int " + temp + " = " + x1.getName() + " * " + x2.getName() + ";");
 
                                 EvaluationStack.Push(stackItem);
                             }
@@ -649,8 +678,8 @@ namespace NEODisassembler
                             {
                                 StackItem x2 = EvaluationStack.Pop();
                                 StackItem x1 = EvaluationStack.Pop();
-                                 addReference(x2);
-                                 addReference(x1);
+                                addReference(x2);
+                                addReference(x1);
                                 temp = getVariable();
 
                                 stackItem = new StackItem();
@@ -658,7 +687,7 @@ namespace NEODisassembler
                                 stackItem.type = Type.integer;
                                 stackItem.integer = x1.integer / x2.integer;
                                 EvaluationStack.Push(stackItem);
-                                src_code.Enqueue(opcode.addr+"    " + temp + "=" + x1.getName() + "/" + x2.getName() + ";");
+                                src_code.Enqueue(opcode.addr.ToString("x02") + "    int " + temp + "=" + x1.getName() + "/" + x2.getName() + ";");
 
                                 EvaluationStack.Push(stackItem);
                             }
@@ -667,8 +696,8 @@ namespace NEODisassembler
                             {
                                 StackItem x2 = EvaluationStack.Pop();
                                 StackItem x1 = EvaluationStack.Pop();
-                                 addReference(x2);
-                                 addReference(x1);
+                                addReference(x2);
+                                addReference(x1);
                                 temp = getVariable();
 
                                 stackItem = new StackItem();
@@ -676,7 +705,7 @@ namespace NEODisassembler
                                 stackItem.type = Type.integer;
                                 stackItem.integer = x1.integer % x2.integer;
                                 EvaluationStack.Push(stackItem);
-                                src_code.Enqueue(opcode.addr+"    " + temp + " = " + x1.getName() + " % " + x2.getName() + ";");
+                                src_code.Enqueue(opcode.addr.ToString("x02") + "    int " + temp + " = " + x1.getName() + " % " + x2.getName() + ";");
 
                                 EvaluationStack.Push(stackItem);
                             }
@@ -689,8 +718,8 @@ namespace NEODisassembler
 
                                 StackItem x2 = EvaluationStack.Pop();
                                 StackItem x1 = EvaluationStack.Pop();
-                                 addReference(x2);
-                                 addReference(x1);
+                                addReference(x2);
+                                addReference(x1);
                                 temp = getVariable();
 
                                 stackItem = new StackItem();
@@ -698,7 +727,7 @@ namespace NEODisassembler
                                 stackItem.type = Type.integer;
                                 stackItem.integer = x1.integer << x2.integer;
                                 EvaluationStack.Push(stackItem);
-                                src_code.Enqueue(opcode.addr+"    " + temp + " = " + x1.getName() + " << " + x2.getName() + ";");
+                                src_code.Enqueue(opcode.addr.ToString("x02") + "    int " + temp + " = " + x1.getName() + " << " + x2.getName() + ";");
 
                                 EvaluationStack.Push(stackItem);
 
@@ -711,8 +740,8 @@ namespace NEODisassembler
                                 //EvaluationStack.Push(x >> n);
                                 StackItem x2 = EvaluationStack.Pop();
                                 StackItem x1 = EvaluationStack.Pop();
-                                 addReference(x2);
-                                 addReference(x1);
+                                addReference(x2);
+                                addReference(x1);
                                 temp = getVariable();
 
                                 stackItem = new StackItem();
@@ -720,7 +749,7 @@ namespace NEODisassembler
                                 stackItem.type = Type.integer;
                                 stackItem.integer = x1.integer >> x2.integer;
                                 EvaluationStack.Push(stackItem);
-                                src_code.Enqueue(opcode.addr+"    " + temp + " = " + x1.getName() + " >> " + x2.getName() + ";");
+                                src_code.Enqueue(opcode.addr.ToString("x02") + "    int " + temp + " = " + x1.getName() + " >> " + x2.getName() + ";");
 
                                 EvaluationStack.Push(stackItem);
                             }
@@ -732,8 +761,8 @@ namespace NEODisassembler
                                 //EvaluationStack.Push(x1 && x2);
                                 StackItem x2 = EvaluationStack.Pop();
                                 StackItem x1 = EvaluationStack.Pop();
-                                 addReference(x2);
-                                 addReference(x1);
+                                addReference(x2);
+                                addReference(x1);
                                 temp = getBoolVariable();
 
                                 stackItem = new StackItem();
@@ -742,7 +771,7 @@ namespace NEODisassembler
                                 stackItem.flag = x1.flag && x2.flag;
                                 EvaluationStack.Push(stackItem);
 
-                                src_code.Enqueue(opcode.addr+"    " + temp + " = " + x1.getName() + " && " + x2.getName() + ";");
+                                src_code.Enqueue(opcode.addr.ToString("x02") + "    bool " + temp + " = " + x1.getName() + " && " + x2.getName() + ";");
                             }
                             break;
                         case OpCode.BOOLOR:
@@ -752,8 +781,8 @@ namespace NEODisassembler
                                 //EvaluationStack.Push(x1 || x2);
                                 StackItem x2 = EvaluationStack.Pop();
                                 StackItem x1 = EvaluationStack.Pop();
-                                 addReference(x2);
-                                 addReference(x1);
+                                addReference(x2);
+                                addReference(x1);
                                 temp = getBoolVariable();
 
                                 stackItem = new StackItem();
@@ -762,7 +791,7 @@ namespace NEODisassembler
                                 stackItem.flag = x1.flag || x2.flag;
                                 EvaluationStack.Push(stackItem);
 
-                                src_code.Enqueue(opcode.addr+"    " + temp + " = " + x1.getName() + " || " + x2.getName() + ";");
+                                src_code.Enqueue(opcode.addr.ToString("x02") + "    bool " + temp + " = " + x1.getName() + " || " + x2.getName() + ";");
                             }
                             break;
                         case OpCode.NUMEQUAL:
@@ -773,8 +802,8 @@ namespace NEODisassembler
 
                                 StackItem x2 = EvaluationStack.Pop();
                                 StackItem x1 = EvaluationStack.Pop();
-                                 addReference(x2);
-                                 addReference(x1);
+                                addReference(x2);
+                                addReference(x1);
                                 temp = getBoolVariable();
 
                                 stackItem = new StackItem();
@@ -782,7 +811,7 @@ namespace NEODisassembler
                                 stackItem.type = Type.boolen;
                                 stackItem.flag = x1.integer == x2.integer;
                                 EvaluationStack.Push(stackItem);
-                                src_code.Enqueue(opcode.addr+"    " + temp + " = " + x1.getName() + " == " + x2.getName() + ";");
+                                src_code.Enqueue(opcode.addr.ToString("x02") + "    bool " + temp + " = " + x1.getName() + " == " + x2.getName() + ";");
 
                                 EvaluationStack.Push(stackItem);
                             }
@@ -794,8 +823,8 @@ namespace NEODisassembler
                                 //EvaluationStack.Push(x1 != x2);
                                 StackItem x2 = EvaluationStack.Pop();
                                 StackItem x1 = EvaluationStack.Pop();
-                                 addReference(x2);
-                                 addReference(x1);
+                                addReference(x2);
+                                addReference(x1);
                                 temp = getBoolVariable();
 
                                 stackItem = new StackItem();
@@ -803,7 +832,7 @@ namespace NEODisassembler
                                 stackItem.type = Type.boolen;
                                 stackItem.flag = x1.integer != x2.integer;
                                 EvaluationStack.Push(stackItem);
-                                src_code.Enqueue(opcode.addr+"    " + temp + " = " + x1.getName() + " != " + x2.getName() + ";");
+                                src_code.Enqueue(opcode.addr.ToString("x02") + "    bool " + temp + " = " + x1.getName() + " != " + x2.getName() + ";");
 
                                 EvaluationStack.Push(stackItem);
                             }
@@ -815,8 +844,8 @@ namespace NEODisassembler
                                 //EvaluationStack.Push(x1 < x2);
                                 StackItem x2 = EvaluationStack.Pop();
                                 StackItem x1 = EvaluationStack.Pop();
-                                 addReference(x2);
-                                 addReference(x1);
+                                addReference(x2);
+                                addReference(x1);
                                 temp = getBoolVariable();
 
                                 stackItem = new StackItem();
@@ -824,7 +853,7 @@ namespace NEODisassembler
                                 stackItem.type = Type.boolen;
                                 stackItem.flag = x1.integer < x2.integer;
                                 EvaluationStack.Push(stackItem);
-                                src_code.Enqueue(opcode.addr+"    " + temp + " = " + x1.getName() + " < " + x2.getName() + ";");
+                                src_code.Enqueue(opcode.addr.ToString("x02") + "    bool " + temp + " = " + x1.getName() + " < " + x2.getName() + ";");
 
                                 EvaluationStack.Push(stackItem);
                             }
@@ -837,8 +866,8 @@ namespace NEODisassembler
 
                                 StackItem x2 = EvaluationStack.Pop();
                                 StackItem x1 = EvaluationStack.Pop();
-                                 addReference(x2);
-                                 addReference(x1);
+                                addReference(x2);
+                                addReference(x1);
                                 temp = getBoolVariable();
 
                                 stackItem = new StackItem();
@@ -846,7 +875,7 @@ namespace NEODisassembler
                                 stackItem.type = Type.boolen;
                                 stackItem.flag = x1.integer > x2.integer;
                                 EvaluationStack.Push(stackItem);
-                                src_code.Enqueue(opcode.addr+"    " + temp + " = " + x1.getName() + " > " + x2.getName() + ";");
+                                src_code.Enqueue(opcode.addr.ToString("x02") + "    bool " + temp + " = " + x1.getName() + " > " + x2.getName() + ";");
 
                                 EvaluationStack.Push(stackItem);
                             }
@@ -858,8 +887,8 @@ namespace NEODisassembler
                                 //EvaluationStack.Push(x1 <= x2);
                                 StackItem x2 = EvaluationStack.Pop();
                                 StackItem x1 = EvaluationStack.Pop();
-                                 addReference(x2);
-                                 addReference(x1);
+                                addReference(x2);
+                                addReference(x1);
                                 temp = getBoolVariable();
 
                                 stackItem = new StackItem();
@@ -867,7 +896,7 @@ namespace NEODisassembler
                                 stackItem.type = Type.boolen;
                                 stackItem.flag = x1.integer <= x2.integer;
                                 EvaluationStack.Push(stackItem);
-                                src_code.Enqueue(opcode.addr+"    " + temp + " = " + x1.getName() + " <= " + x2.getName() + ";");
+                                src_code.Enqueue(opcode.addr.ToString("x02") + "    bool " + temp + " = " + x1.getName() + " <= " + x2.getName() + ";");
 
                                 EvaluationStack.Push(stackItem);
                             }
@@ -879,8 +908,8 @@ namespace NEODisassembler
                                 //EvaluationStack.Push(x1 >= x2);
                                 StackItem x2 = EvaluationStack.Pop();
                                 StackItem x1 = EvaluationStack.Pop();
-                                 addReference(x2);
-                                 addReference(x1);
+                                addReference(x2);
+                                addReference(x1);
                                 temp = getBoolVariable();
 
                                 stackItem = new StackItem();
@@ -888,7 +917,7 @@ namespace NEODisassembler
                                 stackItem.type = Type.boolen;
                                 stackItem.flag = x1.integer >= x2.integer;
                                 EvaluationStack.Push(stackItem);
-                                src_code.Enqueue(opcode.addr+"    " + temp + " = " + x1.getName() + " >= " + x2.getName() + ";");
+                                src_code.Enqueue(opcode.addr.ToString("x02") + "    bool " + temp + " = " + x1.getName() + " >= " + x2.getName() + ";");
 
                                 EvaluationStack.Push(stackItem);
                             }
@@ -900,8 +929,8 @@ namespace NEODisassembler
                                 //EvaluationStack.Push(BigInteger.Min(x1, x2));
                                 StackItem x2 = EvaluationStack.Pop();
                                 StackItem x1 = EvaluationStack.Pop();
-                                 addReference(x2);
-                                 addReference(x1);
+                                addReference(x2);
+                                addReference(x1);
                                 temp = getVariable();
 
                                 stackItem = new StackItem();
@@ -909,7 +938,7 @@ namespace NEODisassembler
                                 stackItem.type = Type.integer;
                                 stackItem.integer = Math.Min(x1.integer, x2.integer);
                                 EvaluationStack.Push(stackItem);
-                                src_code.Enqueue(opcode.addr+"    " + temp + "= Math.Min(" + x1.getName() + "," + x2.getName() + ");");
+                                src_code.Enqueue(opcode.addr.ToString("x02") + "    int " + temp + "= Math.Min(" + x1.getName() + "," + x2.getName() + ");");
 
                                 EvaluationStack.Push(stackItem);
                             }
@@ -922,8 +951,8 @@ namespace NEODisassembler
 
                                 StackItem x2 = EvaluationStack.Pop();
                                 StackItem x1 = EvaluationStack.Pop();
-                                 addReference(x2);
-                                 addReference(x1);
+                                addReference(x2);
+                                addReference(x1);
                                 temp = getVariable();
 
                                 stackItem = new StackItem();
@@ -931,7 +960,7 @@ namespace NEODisassembler
                                 stackItem.type = Type.integer;
                                 stackItem.integer = Math.Max(x1.integer, x2.integer);
                                 EvaluationStack.Push(stackItem);
-                                src_code.Enqueue(opcode.addr+"    " + temp + "= Math.Max(" + x1.getName() + "," + x2.getName() + ");");
+                                src_code.Enqueue(opcode.addr.ToString("x02") + "    int " + temp + "= Math.Max(" + x1.getName() + "," + x2.getName() + ");");
 
                                 EvaluationStack.Push(stackItem);
                             }
@@ -945,9 +974,9 @@ namespace NEODisassembler
                                 StackItem x2 = EvaluationStack.Pop();
                                 StackItem x1 = EvaluationStack.Pop();
                                 StackItem x = EvaluationStack.Pop();
-                                 addReference(x2);
-                                 addReference(x1);
-                                 addReference(x);
+                                addReference(x2);
+                                addReference(x1);
+                                addReference(x);
                                 temp = getBoolVariable();
 
                                 stackItem = new StackItem();
@@ -956,7 +985,7 @@ namespace NEODisassembler
                                 stackItem.flag = (x1.integer <= x.integer && x.integer < x2.integer);
                                 EvaluationStack.Push(stackItem);
 
-                                src_code.Enqueue(opcode.addr+"    " + temp + " = (" + x1.getName() + " <= " + x.getName() + ") && (" + x.name + " < " + x2.name + ");");
+                                src_code.Enqueue(opcode.addr.ToString("x02") + "    bool " + temp + " = (" + x1.getName() + " <= " + x.getName() + ") && (" + x.name + " < " + x2.name + ");");
 
                                 EvaluationStack.Push(stackItem);
                             }
@@ -967,9 +996,9 @@ namespace NEODisassembler
                             using (SHA1 sha = SHA1.Create())
                             {
                                 StackItem x = EvaluationStack.Pop();
-                                 addReference(x);
+                                addReference(x);
                                 x.byteArray = sha.ComputeHash(x.byteArray);
-                                src_code.Enqueue(opcode.addr+"    " + x.getName() + " = Crypto.SHA256(" + x.getName() + ");");
+                                src_code.Enqueue(opcode.addr.ToString("x02") + "    " + x.getName() + " = Crypto.SHA256(" + x.getName() + ");");
                                 EvaluationStack.Push(x);
                             }
 
@@ -978,9 +1007,9 @@ namespace NEODisassembler
                             using (SHA256 sha = SHA256.Create())
                             {
                                 StackItem x = EvaluationStack.Pop();
-                                 addReference(x);
+                                addReference(x);
                                 x.byteArray = sha.ComputeHash(x.byteArray);
-                                src_code.Enqueue(opcode.addr+"    " + x.getName() + " = Crypto.SHA256(" + x.getName() + ");");
+                                src_code.Enqueue(opcode.addr.ToString("x02") + "    " + x.getName() + " = Crypto.SHA256(" + x.getName() + ");");
                                 EvaluationStack.Push(x);
                             }
                             break;
@@ -989,9 +1018,9 @@ namespace NEODisassembler
                                 //byte[] x = EvaluationStack.Pop().GetByteArray();
                                 //EvaluationStack.Push(Crypto.Hash160(x));
                                 StackItem x = EvaluationStack.Pop();
-                                 addReference(x);
+                                addReference(x);
                                 x.byteArray = Crypto.Hash160(x.byteArray);
-                                src_code.Enqueue(opcode.addr+"    " + x.getName() + " = Crypto.Hash160(" + x.getName() + ");");
+                                src_code.Enqueue(opcode.addr.ToString("x02") + "    " + x.getName() + " = Crypto.Hash160(" + x.getName() + ");");
                                 EvaluationStack.Push(x);
                             }
                             break;
@@ -1000,9 +1029,9 @@ namespace NEODisassembler
                                 //byte[] x = EvaluationStack.Pop().GetByteArray();
                                 //EvaluationStack.Push(Crypto.Hash256(x));
                                 StackItem x = EvaluationStack.Pop();
-                                 addReference(x);
+                                addReference(x);
                                 x.byteArray = Crypto.Hash256(x.byteArray);
-                                src_code.Enqueue(opcode.addr+"    " + x.getName() + " = Crypto.Hash256(" + x.getName() + ");");
+                                src_code.Enqueue(opcode.addr.ToString("x02") + "    " + x.getName() + " = Crypto.Hash256(" + x.getName() + ");");
                                 EvaluationStack.Push(x);
                             }
                             break;
@@ -1059,7 +1088,7 @@ namespace NEODisassembler
                                 stackItem.integer = item.byteArray.Length;
                                 EvaluationStack.Push(stackItem);
 
-                                src_code.Enqueue(opcode.addr+"    " + temp + " = " + item.getName() + ".Length;");
+                                src_code.Enqueue(opcode.addr.ToString("x02") + "    int " + temp + " = " + item.getName() + ".Length;");
                                 EvaluationStack.Push(stackItem);
                             }
                             break;
@@ -1077,13 +1106,13 @@ namespace NEODisassembler
                                 stackItem.arr = items;
                                 EvaluationStack.Push(stackItem);
 
-                                src_code.Enqueue(opcode.addr+"     List<?> " + temp + "= new List<?>(" + size.getName() + ");");
+                                src_code.Enqueue(opcode.addr.ToString("x02") + "     List<?> " + temp + "= new List<?>(" + size.getName() + ");");
                                 StackItem it;
                                 for (int i = 0; i < size.integer; i++)
                                 {
                                     it = EvaluationStack.Pop();
                                     items.Add(it);
-                                    src_code.Enqueue(opcode.addr+"    " + temp + ".Add(" + it.getName() + ");");
+                                    src_code.Enqueue(opcode.addr.ToString("x02") + "    " + temp + ".Add(" + it.getName() + ");");
                                 }
                                 EvaluationStack.Push(stackItem);
                             }
@@ -1106,10 +1135,19 @@ namespace NEODisassembler
                                 StackItem x = EvaluationStack.Pop();
 
                                 addReference(key);
-                                 addReference(x);
+                                addReference(x);
 
                                 StackItem v = x.arr[key.integer];
-                                src_code.Enqueue(opcode.addr+"    " + v.getName() + " = " + x.getName() + "[" + key.getName() + "];");
+                                string code = opcode.addr.ToString("x02")+ "    ";
+                                if (v.directValue)
+                                {
+                                    v.name = appendName(v);
+                                    v.directValue = false;
+                                    code += "int ";
+                                }
+                                code += v.getName() + " = " + x.getName() + "[" + key.getName() + "];";
+
+                                src_code.Enqueue(code);
 
                                 EvaluationStack.Push(v);
                             }
@@ -1122,7 +1160,7 @@ namespace NEODisassembler
                                 StackItem x = EvaluationStack.Pop();
 
                                 addReference(value);
-                                 addReference(x);
+                                addReference(x);
                                 addReference(key);
 
                                 if (x.type == Type.array)
@@ -1130,7 +1168,7 @@ namespace NEODisassembler
                                     int index = (int)key.integer;
 
                                     x.arr[index] = value;
-                                    src_code.Enqueue(opcode.addr+"    " + x.getName() + "[" + key.getName() + "] = " + value.getName() + ";");
+                                    src_code.Enqueue(opcode.addr.ToString("x02") + "    " + x.getName() + "[" + key.getName() + "] = " + value.getName() + ";");
                                 }
                                 else
                                 {
@@ -1150,14 +1188,15 @@ namespace NEODisassembler
                                 StackItem stackItem1 = new StackItem();
                                 stackItem1.name = temp1;
                                 stackItem1.type = Type.array;
-                                src_code.Enqueue(opcode.addr+"    Array " + temp1 + " = new Array<?>(" + count.getName() + ");");
+                                src_code.Enqueue(opcode.addr.ToString("x02") + "    Array " + temp1 + " = new Array<?>(" + count.getName() + ");");
 
                                 for (var i = 0; i < count.integer; i++)
                                 {
-                                    temp = getBoolVariable();
+                                    //temp = getBoolVariable();
 
                                     stackItem = new StackItem();
-                                    stackItem.name = temp;
+                                    //stackItem.name = temp;
+                                    stackItem.directValue = true;
                                     stackItem.type = Type.boolen;
                                     stackItem.flag = false;
                                     items.Add(stackItem);
@@ -1189,7 +1228,7 @@ namespace NEODisassembler
 
                                 arrItem.arr.Add(newItem);
 
-                                src_code.Enqueue(opcode.addr+"    " + arrItem.getName() + ".Add(" + newItem.getName() + ");");
+                                src_code.Enqueue(opcode.addr.ToString("x02") + "    " + arrItem.getName() + ".Add(" + newItem.getName() + ");");
 
                                 EvaluationStack.Push(arrItem);
                             }
@@ -1201,7 +1240,7 @@ namespace NEODisassembler
                                 addReference(arrItem);
 
                                 arrItem.arr.Reverse();
-                                src_code.Enqueue(opcode.addr+"    " + arrItem.getName() + ".Reverse();");
+                                src_code.Enqueue(opcode.addr.ToString("x02") + "    " + arrItem.getName() + ".Reverse();");
                                 EvaluationStack.Push(arrItem);
                             }
                             break;
@@ -1239,7 +1278,7 @@ namespace NEODisassembler
                                 StackItem x = EvaluationStack.Pop();
 
                                 addReference(key);
-                                 addReference(x);
+                                addReference(x);
 
                                 temp = getBoolVariable();
 
@@ -1258,7 +1297,7 @@ namespace NEODisassembler
                                     stackItem.flag = x.arr.Contains(key);
                                 }
 
-                                src_code.Enqueue(opcode.addr+"    " + temp + x.getName() + ".Contains(" + key.getName() + ");");
+                                src_code.Enqueue(opcode.addr.ToString("x02") + "    " + temp + x.getName() + ".Contains(" + key.getName() + ");");
                                 EvaluationStack.Push(stackItem);
 
                             }
@@ -1312,7 +1351,7 @@ namespace NEODisassembler
                             return;
                     }
             }
-            src_code.Enqueue("}");
+            src_code.Enqueue("  }");
 
             // REMOVE THOSE VARIABLES THAT ONLY USED ONCE
             foreach (string number in src_code)

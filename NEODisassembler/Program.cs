@@ -46,7 +46,7 @@ namespace NEODisassembler
                 Console.WriteLine("Open File Error:" + err.ToString());
                 return;
             }
-            Console.WriteLine("End here");
+                Console.WriteLine("End here");
         }
     }
 }
