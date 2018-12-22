@@ -96,7 +96,22 @@ namespace NEODisassembler
         {
             return Enum.GetName(typeof(OpCode), code);
         }
-
+        public string value()
+        {
+            if (this.paramType == ParamType.ByteArray)
+            {
+               return this.AsHexString();
+            }
+            else if (this.paramType == ParamType.String)
+            {
+                return this.AsString();
+            }
+            else if (this.paramType == ParamType.Addr)
+            {
+               return this.AsAddr()+"" ;
+            }
+            return this.addr.ToString("x02");
+        }
         public string toString()
         {
             var name = this.getCodeName();
