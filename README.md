@@ -12,8 +12,9 @@ Feel free to try, use, and submit your commit. Contribution is warmly welcomed.
 
 Assign the avm file path in Program.cs, then run this project in visual studio, you will get the decompiled result.
 
-例如对于如下合约：
-```
+例如对于如下合约:
+
+```c#
         public static void Main()
         {
             string a = "hello ";
@@ -25,8 +26,9 @@ Assign the avm file path in Program.cs, then run this project in visual studio, 
         }
 ```
 
-反编译如下：
-```
+反编译如下:
+
+```C#
 00 static void Main(string[] args) {
 01    Array v_array_0 = new Array<?>(5);
 04    byte[] v_array_1 = new byte[]("hello ");
