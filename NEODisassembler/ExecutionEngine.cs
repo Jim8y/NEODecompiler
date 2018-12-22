@@ -387,7 +387,7 @@ namespace NEODisassembler
                                 x1.byteArray = x3;
                                 //EvaluationStack.Push(stackItem);
 
-                                src_code.Enqueue(opcode.addr.ToString("x02") + "    " + x1.getName() + " = " + x1.getName() + " + " + x2.getName() +" ("+ Encoding.UTF8.GetString(x3) +")");
+                                src_code.Enqueue(opcode.addr.ToString("x02") + "    " + x1.getName() + " = " + x1.getName() + " + " + x2.getName() +"    // ("+ Encoding.UTF8.GetString(x3) +")");
 
                                 EvaluationStack.Push(x1);
                             }

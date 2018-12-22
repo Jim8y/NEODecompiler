@@ -41,7 +41,7 @@ Decompiled result:
 27 Jump 49
 2f    v_array_1 = v_array_0[0];
 34    v_array_2 = v_array_0[1];
-35    v_array_1 = v_array_1 + v_array_2 (hello world)
+35    v_array_1 = v_array_1 + v_array_2     // (hello world)
 3c    v_array_0[3] = v_array_1;
 42    int v_int_0 = v_array_0[2];
 44    v_int_0 = 1 + v_int_0;
