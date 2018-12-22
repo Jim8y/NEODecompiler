@@ -13,6 +13,7 @@ Feel free to try, use, and submit your commit. Contribution is warmly welcomed.
 Assign the avm file path in Program.cs, then run this project in visual studio, you will get the decompiled result.
 
 例如对于如下合约:
+Sample contract:
 
 ```c#
         public static void Main()
@@ -27,6 +28,7 @@ Assign the avm file path in Program.cs, then run this project in visual studio, 
 ```
 
 反编译如下:
+Decompiled result:
 
 ```C#
 00 static void Main(string[] args) {
