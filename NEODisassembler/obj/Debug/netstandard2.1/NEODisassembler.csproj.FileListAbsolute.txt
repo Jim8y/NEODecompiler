@@ -1,0 +1,9 @@
+/Users/jinghuiliao/git/NEODecompiler/NEODisassembler/obj/Debug/netstandard2.1/NEODisassembler.csprojAssemblyReference.cache
+/Users/jinghuiliao/git/NEODecompiler/NEODisassembler/obj/Debug/netstandard2.1/NEODisassembler.csproj.CoreCompileInputs.cache
+/Users/jinghuiliao/git/NEODecompiler/NEODisassembler/obj/Debug/netstandard2.1/NEODisassembler.AssemblyInfoInputs.cache
+/Users/jinghuiliao/git/NEODecompiler/NEODisassembler/obj/Debug/netstandard2.1/NEODisassembler.AssemblyInfo.cs
+/Users/jinghuiliao/git/NEODecompiler/NEODisassembler/bin/Debug/netstandard2.1/NEODisassembler.deps.json
+/Users/jinghuiliao/git/NEODecompiler/NEODisassembler/bin/Debug/netstandard2.1/NEODisassembler.dll
+/Users/jinghuiliao/git/NEODecompiler/NEODisassembler/bin/Debug/netstandard2.1/NEODisassembler.pdb
+/Users/jinghuiliao/git/NEODecompiler/NEODisassembler/obj/Debug/netstandard2.1/NEODisassembler.dll
+/Users/jinghuiliao/git/NEODecompiler/NEODisassembler/obj/Debug/netstandard2.1/NEODisassembler.pdb

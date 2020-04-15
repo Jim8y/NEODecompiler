@@ -157,14 +157,14 @@ namespace NEODisassembler
             var name = "";
             if (this.error)
                 name = "[E]";
-            if (this.code == OpCode.PUSHT)
-                return "PUSH1(true)";
-            if (this.code == OpCode.PUSHF)
-                return "PUSH0(false)";
+            //if (this.code == OpCode.PUSHT)
+            //    return "PUSH1(true)";
+            //if (this.code == OpCode.PUSHF)
+            //    return "PUSH0(false)";
 
-            if (this.code > OpCode.PUSHBYTES1 && this.code < OpCode.PUSHBYTES75)
-                return name + "PUSHBYTES" + (this.code - OpCode.PUSHBYTES1 + 1);
-            else
+            //if (this.code > OpCode.PUSHBYTES1 && this.code < OpCode.PUSHBYTES75)
+            //    return name + "PUSHBYTES" + (this.code - OpCode.PUSHBYTES1 + 1);
+            //else
                 return name + Enum.GetName(typeof(OpCode), this.code);
         }
     }

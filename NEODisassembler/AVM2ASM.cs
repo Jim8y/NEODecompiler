@@ -24,15 +24,7 @@ namespace NEODisassembler
                 o.code = breader.ReadOP();
                 try
                 {
-                    //push 特别处理
-                    if (o.code >= OpCode.PUSHBYTES1 && o.code <= OpCode.PUSHBYTES75)
-                    {
-                        o.paramType = ParamType.ByteArray;
-                        var _count = (int)o.code;
-                        o.paramData = breader.ReadBytes(_count);
-                    }
-                    else
-                    {
+                
                         switch (o.code)
                         {
                             case OpCode.PUSH0:
@@ -53,7 +45,19 @@ namespace NEODisassembler
                             case OpCode.PUSH14:
                             case OpCode.PUSH15:
                             case OpCode.PUSH16:
+                            case OpCode.PUSHINT8:
+                            case OpCode.PUSHINT16:
+                            case OpCode.PUSHINT32:
+                            case OpCode.PUSHINT64:
+                            case OpCode.PUSHINT128:
+                            case OpCode.PUSHINT256:
+                            case OpCode.PUSHNULL:
                                 o.paramType = ParamType.None;
+                                break;
+                            case OpCode.PUSHA:
+                                o.paramType = ParamType.Addr;
+                                //var _count = breader.ReadByte();
+                                o.paramData = breader.ReadBytes(4);
                                 break;
                             case OpCode.PUSHDATA1:
                                 {
@@ -82,66 +86,175 @@ namespace NEODisassembler
                             case OpCode.JMP:
                             case OpCode.JMPIF:
                             case OpCode.JMPIFNOT:
+                            case OpCode.JMPEQ:
+                            case OpCode.JMPNE:
+                            case OpCode.JMPGT:
+                            case OpCode.JMPGE:
+                            case OpCode.JMPLT:
+                            case OpCode.JMPLE:
+                                {
                                 // Set loop symbol
                                 o.paramType = ParamType.Addr;
-                                o.paramData = breader.ReadBytes(2);
-                                if (o.AsAddr() < 0)
+                                o.paramData = breader.ReadBytes(1);
+                                //if (o.AsAddr() < 0)
+                                //{
+                                //    var target = o.addr + o.AsAddr() - 3;
+                                //    NeoCode targetCode = arr[target];
+                                //    targetCode.beginOfLoop = true;
+                                //   o.endOfLoop = true;
+                                //}
+                            }
+                            break;
+                            case OpCode.JMPIF_L:
+                            case OpCode.JMPIFNOT_L:
+                            case OpCode.JMPEQ_L:
+                            case OpCode.JMPNE_L:
+                            case OpCode.JMP_L:
+                            case OpCode.JMPLT_L:
+                            case OpCode.JMPGT_L:
+                            case OpCode.JMPLE_L:
+                            case OpCode.JMPGE_L:
                                 {
-                                    var target = o.addr + o.AsAddr() - 3;
-                                    NeoCode targetCode = arr[target];
-                                    targetCode.beginOfLoop = true;
-                                    o.endOfLoop = true;
+                                    // Set loop symbol
+                                    o.paramType = ParamType.Addr;
+                                    o.paramData = breader.ReadBytes(4);
+                                    //if (o.AsAddr() < 0)
+                                    //{
+                                    //    var target = o.addr + o.AsAddr() - 3;
+                                    //    NeoCode targetCode = arr[target];
+                                    //    targetCode.beginOfLoop = true;
+                                    //   o.endOfLoop = true;
+                                    //}
                                 }
-                                
                                 break;
-         
+
                             case OpCode.CALL:
                                 o.paramType = ParamType.Addr;
-                                o.paramData = breader.ReadBytes(2);
+                                o.paramData = breader.ReadBytes(1);
                                 // need re-calculate the address
                                 o.needfixfunc = true;
                                 break;
+                            case OpCode.CALL_L:
+                                o.paramType = ParamType.Addr;
+                                o.paramData = breader.ReadBytes(4);
+                                // need re-calculate the address
+                                o.needfixfunc = true;
+                                break;
+                            case OpCode.CALLA:
+                            //{
+                                //o.paramType = ParamType.None;
+                            //    o.paramType = ParamType.Addr;
+                            //    var _count = breader.ReadVarInt();
+                            //    o.paramData = breader.ReadBytes(_count);
+                            //}
+                           
+                            //break;
+
+                        case OpCode.ABORT:
+                                //o.paramType = ParamType.None;
+                            case OpCode.ASSERT:
+                                //{
+                                //    if (!TryPop(out bool x)) return false;
+                                //    if (!x) return false;
+                                //    break;
+                                //}
+                            case OpCode.THROW:
+                                //{
+                                //    return false;
+                                //}
                             case OpCode.RET:
-                                ExecutionEngine.ExecuteOp(method);
+                                //ExecutionEngine.ExecuteOp(method);
                                 o.paramType = ParamType.None;
                                 // If it is not the end, create a new method and store it into the neomodule
                                 // The name of new method is sub_ and the address
-                                if(o.addr< script.Length-1)
-                                {
-                                    method = new NeoMethod();
-                                    method.name = "sub_" + (o.addr + 1);
-                                    method.addr = o.addr + 1;
-                                }
+                                //if(o.addr< script.Length-1)
+                                //{
+                                //    method = new NeoMethod();
+                                //    method.name = "sub_" + (o.addr + 1);
+                                //    method.addr = o.addr + 1;
+                                //}
 
                                 break;
-                            case OpCode.APPCALL:
-                            case OpCode.TAILCALL:
-                                o.paramType = ParamType.ByteArray;
-                                o.paramData = breader.ReadBytes(20);
-                                break;
+          
                             case OpCode.SYSCALL:
                                 o.paramType = ParamType.String;
-                                o.paramData = breader.ReadVarBytes();
+                                o.paramData = breader.ReadBytes(4);
                                 break;
-                            case OpCode.DUPFROMALTSTACK:
-                            case OpCode.TOALTSTACK:
-                            case OpCode.FROMALTSTACK:
-                            case OpCode.XDROP:
-                            case OpCode.XSWAP:
-                            case OpCode.XTUCK:
                             case OpCode.DEPTH:
                             case OpCode.DROP:
-                            case OpCode.DUP:
                             case OpCode.NIP:
+                            case OpCode.XDROP:
+                            case OpCode.CLEAR:
+
+                            case OpCode.DUP:
                             case OpCode.OVER:
                             case OpCode.PICK:
                             case OpCode.ROLL:
                             case OpCode.ROT:
                             case OpCode.SWAP:
                             case OpCode.TUCK:
+                            case OpCode.REVERSE3:
+                            case OpCode.REVERSEN:
+                            case OpCode.INITSSLOT:
+                            case OpCode.INITSLOT:
+                                o.paramType = ParamType.ByteArray;
+                                o.paramData = breader.ReadBytes(1);
+                                break;
+                            case OpCode.LDSFLD0:
+                            case OpCode.LDSFLD1:
+                            case OpCode.LDSFLD2:
+                            case OpCode.LDSFLD3:
+                            case OpCode.LDSFLD4:
+                            case OpCode.LDSFLD5:
+                            case OpCode.LDSFLD6:
+                            case OpCode.LDSFLD:
+                                o.paramType = ParamType.ByteArray;
+                                o.paramData = breader.ReadBytes(1);
+                                break;
+
+                            case OpCode.STSFLD0:
+                            case OpCode.STSFLD1:
+                            case OpCode.STSFLD2:
+                            case OpCode.STSFLD3:
+                            case OpCode.STSFLD4:
+                            case OpCode.STSFLD5:
+                            case OpCode.STSFLD6:
+                            case OpCode.STSFLD:
+                                o.paramType = ParamType.ByteArray;
+                                o.paramData = breader.ReadBytes(1);
+                                break;
+
+                            case OpCode.LDLOC0:
+                            case OpCode.LDLOC1:
+                            case OpCode.LDLOC2:
+                            case OpCode.LDLOC3:
+                            case OpCode.LDLOC4:
+                            case OpCode.LDLOC5:
+                            case OpCode.LDLOC6:
                                 o.paramType = ParamType.None;
                                 break;
 
+                            case OpCode.LDLOC:
+                                o.paramType = ParamType.ByteArray;
+                                o.paramData = breader.ReadBytes(1);
+                                break;
+
+                            case OpCode.STARG0:
+                            case OpCode.STARG1:
+                            case OpCode.STARG2:
+                            case OpCode.STARG3:
+                            case OpCode.STARG4:
+                            case OpCode.STARG5:
+                            case OpCode.STARG6:
+                                o.paramType = ParamType.None;
+                                break;
+                            case OpCode.STARG:
+                                o.paramType = ParamType.ByteArray;
+                                o.paramData = breader.ReadBytes(1);
+                                break;
+
+                            case OpCode.NEWBUFFER:
+                            case OpCode.MEMCPY:
                             case OpCode.CAT:
                             case OpCode.SUBSTR:
                             case OpCode.LEFT:
@@ -155,12 +268,14 @@ namespace NEODisassembler
                             case OpCode.OR:
                             case OpCode.XOR:
                             case OpCode.EQUAL:
+                            case OpCode.NOTEQUAL:
+                            case OpCode.SIGN:
                                 o.paramType = ParamType.None;
                                 break;
 
                             case OpCode.INC:
                             case OpCode.DEC:
-                            case OpCode.SIGN:
+                          
                             case OpCode.NEGATE:
                             case OpCode.ABS:
                             case OpCode.NOT:
@@ -178,45 +293,51 @@ namespace NEODisassembler
                             case OpCode.NUMNOTEQUAL:
                             case OpCode.LT:
                             case OpCode.GT:
-                            case OpCode.LTE:
-                            case OpCode.GTE:
+                            case OpCode.PACK:
+                            case OpCode.UNPACK:
+                            case OpCode.NEWARRAY0:
+                            case OpCode.NEWARRAY:
+                                o.paramType = ParamType.None;
+                                break;
+                            case OpCode.NEWARRAY_T:
+                                o.paramType = ParamType.ByteArray;
+                                o.paramData = breader.ReadBytes(1);
+                                break;
+
                             case OpCode.MIN:
                             case OpCode.MAX:
                             case OpCode.WITHIN:
+                            case OpCode.NEWSTRUCT0:
+                            case OpCode.NEWSTRUCT:
+                            case OpCode.NEWMAP:
+                            case OpCode.KEYS:
+                            case OpCode.VALUES:
+                            case OpCode.APPEND:
                                 o.paramType = ParamType.None;
                                 break;
 
                             // Crypto
-                            case OpCode.SHA1:
-                            case OpCode.SHA256:
-                            case OpCode.HASH160:
-                            case OpCode.HASH256:
-                            case OpCode.CHECKSIG:
-                            case OpCode.CHECKMULTISIG:
+                            case OpCode.HASKEY:
                                 o.paramType = ParamType.None;
                                 break;
 
                             // Array
-                            case OpCode.ARRAYSIZE:
-                            case OpCode.PACK:
-                            case OpCode.UNPACK:
                             case OpCode.PICKITEM:
                             case OpCode.SETITEM:
-                            case OpCode.NEWARRAY:
-                            case OpCode.NEWSTRUCT:
+                            case OpCode.REVERSEITEMS:
+                            case OpCode.REMOVE:
+                            case OpCode.CLEARITEMS:
+                            case OpCode.ISNULL:
+                            case OpCode.ISTYPE:
+                            case OpCode.CONVERT:
                                 o.paramType = ParamType.None;
                                 break;
 
-                            // Exceptions
-                            case OpCode.THROW:
-                            case OpCode.THROWIFNOT:
-                                o.paramType = ParamType.None;
-                                break;
                             default:
                                 //Console.WriteLine("error"+ Enum.GetName(typeof(OpCode),o.code));
                                 break;
                         }
-                    }
+                  
                 }
                 catch(Exception err)
                 {
